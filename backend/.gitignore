@@ -1,0 +1,13 @@
+.env
+.venv
+.serverless
+
+*.egg-info
+__pycache__
+.wheels/
+utils.sh
+.coverage
+
+node_modules
+package-lock.json
+package.json
