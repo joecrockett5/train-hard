@@ -7,24 +7,23 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 	// will then add tag support
 	const exerciseId = url.searchParams.get('exercise');
 	const workoutId = url.searchParams.get('workout');
-	console.log(
-		'GET /api/exercise-joins' +
-			(exerciseId ? '?exercise=' + exerciseId : '') +
-			(workoutId ? '&workout=' + workoutId : '')
-	);
+
+	// See the note in api/sets/+server.ts: concatenating a hardcoded '?' and
+	// '&' broke whenever only the second parameter was present.
+	const query = new URLSearchParams();
+	if (exerciseId) query.set('exercise', exerciseId);
+	if (workoutId) query.set('workout', workoutId);
+	const suffix = query.size ? `?${query}` : '';
+
+	console.log(`GET /api/exercise-joins${suffix}`);
 	const profileId = locals.profileId;
 	if (!profileId) {
 		console.log('No profile selected');
 		return new Response('Unauthorized', { status: 401 });
 	}
-	const response = await fetch(
-		`${env.HARD_API}/exercise-joins` +
-			(exerciseId ? '?exercise=' + exerciseId : '') +
-			(workoutId ? '&workout=' + workoutId : ''),
-		{
-			headers: { 'X-Profile-Id': profileId }
-		}
-	);
+	const response = await fetch(`${env.HARD_API}/exercise-joins${suffix}`, {
+		headers: { 'X-Profile-Id': profileId }
+	});
 	const rawExerciseJoins = await response.json();
 	const exerciseJoins = [];
 	for (const join of rawExerciseJoins) {

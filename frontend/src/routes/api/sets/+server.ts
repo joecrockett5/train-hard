@@ -7,24 +7,25 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 	// will then add tag support
 	const workoutId = url.searchParams.get('workout');
 	const exerciseId = url.searchParams.get('exercise');
-	console.log(
-		'GET /api/sets' +
-			(workoutId ? '?workout=' + workoutId : '') +
-			(exerciseId ? '&exercise=' + exerciseId : '')
-	);
+
+	// Built with URLSearchParams rather than concatenation: the previous
+	// version hardcoded '?' on the workout param and '&' on the exercise one,
+	// so filtering by exercise alone produced '/sets&exercise=...' with no
+	// query string at all.
+	const query = new URLSearchParams();
+	if (workoutId) query.set('workout', workoutId);
+	if (exerciseId) query.set('exercise', exerciseId);
+	const suffix = query.size ? `?${query}` : '';
+
+	console.log(`GET /api/sets${suffix}`);
 	const profileId = locals.profileId;
 	if (!profileId) {
 		console.log('No profile selected');
 		return new Response('Unauthorized', { status: 401 });
 	}
-	const response = await fetch(
-		`${env.HARD_API}/sets` +
-			(workoutId ? '?workout=' + workoutId : '') +
-			(exerciseId ? '&exercise=' + exerciseId : ''),
-		{
-			headers: { 'X-Profile-Id': profileId }
-		}
-	);
+	const response = await fetch(`${env.HARD_API}/sets${suffix}`, {
+		headers: { 'X-Profile-Id': profileId }
+	});
 	const rawSets = await response.json();
 	const sets: Set[] = [];
 	for (const set of rawSets) {
