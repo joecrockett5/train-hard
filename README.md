@@ -144,6 +144,7 @@ documents all of them. The ones that matter:
 | `DYNAMO_TABLE_NAME` | `hardResources` | Must match what `scripts/init_tables.py` creates. |
 | `AWS_REGION` | `eu-west-2` | Dummy locally, but boto3 will not sign without it. |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | `local` / `local` | Dummy. DynamoDB Local ignores them; boto3 requires them to exist. |
+| `ORIGIN` | `http://localhost:3000` | The browser-facing URL. `adapter-node` checks form POSTs against it and answers 403 if it does not match, so change it with `FRONTEND_HOST_PORT`. |
 | `FRONTEND_HOST_PORT` | `3000` | |
 | `BACKEND_HOST_PORT` | `8000` | |
 | `DYNAMODB_HOST_PORT` | `8001` | 8001 because the backend has 8000. |
@@ -190,6 +191,10 @@ it is DynamoDB that is unreachable. `docker compose logs backend` has the rest.
 **Frontend 500s on every page.** Usually `HARD_API` pointing somewhere wrong.
 It needs the `/api` suffix and must use the service name `backend`, not
 `localhost`, from inside the container.
+
+**403 "Cross-site POST form submissions are forbidden".** `ORIGIN` does not
+match the URL you are using. Set it to exactly the scheme, host and port in
+the address bar.
 
 **Changes not appearing.** In production mode the app is a built bundle;
 either rebuild (`docker compose up --build`) or use dev mode.

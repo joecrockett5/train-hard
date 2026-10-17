@@ -112,6 +112,12 @@ services:
       HARD_API: ${HARD_API:-http://backend:8000/api}
       PORT: 3000
       HOST: 0.0.0.0
+      # adapter-node checks the Origin header of form POSTs against this and
+      # answers 403 "Cross-site POST form submissions are forbidden" when it
+      # cannot match. It has no way to know the host-side URL, so it must be
+      # told. Change it alongside FRONTEND_HOST_PORT, or when reaching the app
+      # at anything other than localhost.
+      ORIGIN: ${ORIGIN:-http://localhost:${FRONTEND_HOST_PORT:-3000}}
     ports:
       - "${FRONTEND_HOST_PORT:-3000}:3000"
     depends_on:
