@@ -2,9 +2,10 @@ import { env } from '$env/dynamic/private';
 import { fail, redirect, type Actions } from '@sveltejs/kit';
 import {
 	cacheProfile,
+	clearProfileCookie,
 	forgetProfile,
 	PROFILE_COOKIE,
-	PROFILE_COOKIE_OPTIONS
+	profileCookieOptions
 } from '$lib/server/profile';
 import type { PageServerLoad } from './$types';
 
@@ -58,7 +59,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 };
 
 export const actions: Actions = {
-	select: async ({ request, cookies }) => {
+	select: async ({ request, cookies, url }) => {
 		const data = await request.formData();
 		const profileId = String(data.get('profileId') ?? '');
 		const redirectTo = String(data.get('redirectTo') ?? '/');
@@ -68,11 +69,11 @@ export const actions: Actions = {
 		}
 
 		forgetProfile(profileId);
-		cookies.set(PROFILE_COOKIE, profileId, PROFILE_COOKIE_OPTIONS);
+		cookies.set(PROFILE_COOKIE, profileId, profileCookieOptions(url));
 		redirect(303, redirectTo);
 	},
 
-	create: async ({ request, cookies }) => {
+	create: async ({ request, cookies, url }) => {
 		const data = await request.formData();
 		const name = String(data.get('name') ?? '').trim();
 		const redirectTo = String(data.get('redirectTo') ?? '/');
@@ -95,12 +96,12 @@ export const actions: Actions = {
 
 		const created: BackendProfile = await response.json();
 		cacheProfile({ objectId: created.object_id, name: created.name });
-		cookies.set(PROFILE_COOKIE, created.object_id, PROFILE_COOKIE_OPTIONS);
+		cookies.set(PROFILE_COOKIE, created.object_id, profileCookieOptions(url));
 		redirect(303, redirectTo);
 	},
 
-	switch: async ({ cookies }) => {
-		cookies.delete(PROFILE_COOKIE, { path: '/' });
+	switch: async ({ cookies, url }) => {
+		clearProfileCookie(cookies, url);
 		redirect(303, '/profiles');
 	}
 };

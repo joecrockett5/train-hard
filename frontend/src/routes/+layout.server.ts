@@ -1,6 +1,11 @@
 import { env } from '$env/dynamic/private';
 import { redirect } from '@sveltejs/kit';
-import { cacheProfile, forgetProfile, getCachedProfile, PROFILE_COOKIE } from '$lib/server/profile';
+import {
+	cacheProfile,
+	clearProfileCookie,
+	forgetProfile,
+	getCachedProfile
+} from '$lib/server/profile';
 import type { LayoutServerLoad } from './$types';
 
 /**
@@ -34,7 +39,7 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 
 	if (response.status === 404) {
 		forgetProfile(locals.profileId);
-		cookies.delete(PROFILE_COOKIE, { path: '/' });
+		clearProfileCookie(cookies, url);
 		locals.profileId = undefined;
 
 		if (url.pathname !== '/profiles') {
