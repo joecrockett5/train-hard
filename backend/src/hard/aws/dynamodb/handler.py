@@ -86,6 +86,13 @@ class DynamoDB:
                 f"Invalid `search_attr` ('{search_attr}') for target class `{ObjectType.from_object_class(target_object_cls).value}`"
             )
 
+        if not matches_list:
+            # Attr(...).is_in([]) renders an empty parenthesis group, which
+            # DynamoDB rejects as a malformed FilterExpression. Nothing can
+            # match an empty list anyway. Some callers guard this themselves;
+            # guarding here covers the ones that do not.
+            return []
+
         partition = PARTITION_TEMPLATE.format(
             **{
                 "user_id": user.id,
