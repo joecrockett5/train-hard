@@ -1,0 +1,46 @@
+# ---- Original repos (kept on disk, outside the monorepo) ----
+# Delete these directories once you're happy with the merge, then remove
+# these two lines.
+hard-api-old/
+hard-ui-old/
+
+# ---- Secrets / local config ----
+.env
+.env.*
+!.env.example
+
+# ---- Python (backend/) ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# ---- Node / SvelteKit (frontend/) ----
+node_modules/
+.svelte-kit/
+.output/
+.vercel/
+frontend/build/
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# ---- Legacy AWS build artefacts ----
+.serverless/
+.amplify-hosting/
+.wheels/
+
+# ---- OS / editor ----
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
