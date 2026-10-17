@@ -8,7 +8,10 @@ services:
   backend:
     build:
       context: ./backend
-      target: base
+      target: development
+    ports:
+      # Reachable from the host in dev mode for curl and /docs.
+      - "127.0.0.1:${BACKEND_HOST_PORT:-8000}:8000"
     # --reload watches the bind-mounted source. Dropping to the host's uid
     # would complicate the editable install, so this keeps the image's user.
     command:

@@ -20,8 +20,8 @@ infra-legacy/   The old AWS deployment config, kept for reference
 
 They are identical apart from the interface strings and date formatting.
 This branch is the original UI the app was written with; `main` is the English
-translation of it. Any change that is not a user-facing string should land on
-both.
+translation of it. Any change that is
+not a user-facing string should land on both.
 
 ## Prerequisites
 
@@ -44,9 +44,9 @@ only if you want to change something (ports, mainly).
 | URL | What |
 | --- | --- |
 | http://localhost:3000 | The app |
-| http://localhost:8000/docs | Backend API docs (Swagger) |
-| http://localhost:8000/health | Backend health + DynamoDB reachability |
-| http://localhost:8001 | DynamoDB Local |
+| http://localhost:8000/docs | Backend API docs (Swagger), loopback only |
+| http://localhost:8000/health | Backend health + DynamoDB reachability, loopback only |
+| http://localhost:8001 | DynamoDB Local, loopback only |
 
 ## Profiles
 
@@ -90,7 +90,19 @@ docker compose --profile test run --rm test
 ```
 
 It uses `moto` to mock DynamoDB, so it needs neither the `dynamodb` service
-nor any credentials.
+nor any credentials. It covers the data layer and drives the real FastAPI app
+through a `TestClient`.
+
+The frontend's checks need Node on the host:
+
+```bash
+cd frontend && npm ci && npm run check && npm run lint && npm test
+```
+
+`npm run check` is `svelte-check`, `npm test` is Vitest. All four of these
+gates run on every push and pull request; see `.github/workflows/ci.yml`,
+which also brings the whole stack up from a clean checkout, logs a set end to
+end, and asserts the data survives a restart.
 
 ## Resetting the database
 
@@ -123,6 +135,23 @@ Add `--dry-run` to check parsing without writing. See
 [seed-data/README.md](seed-data/README.md).
 
 Get a profile's id from `http://localhost:8000/api/profiles`.
+
+## Installing it on a phone
+
+The app ships a web manifest and a service worker, so a phone can install it
+to the home screen and it opens without browser chrome. Reach it over your
+network at `http://<this-machine>:3000` -- `FRONTEND_BIND` is `0.0.0.0` for
+exactly this.
+
+The service worker caches the app's own assets, so the interface loads
+instantly and survives a bad connection. It deliberately does **not** cache
+anything under `/api`: showing a stale set list would be worse than showing
+an error. Logging a set still needs the backend reachable; true offline
+logging would need a sync queue, which this does not attempt.
+
+Browsers only register service workers over HTTPS or on `localhost`, so
+installing from another device over plain HTTP gets the manifest but not the
+offline caching. Put it behind a TLS-terminating proxy if you want both.
 
 ## How the pieces fit together
 
@@ -158,8 +187,9 @@ documents all of them. The ones that matter:
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | `local` / `local` | Dummy. DynamoDB Local ignores them; boto3 requires them to exist. |
 | `ORIGIN` | `http://localhost:3000` | The browser-facing URL. `adapter-node` checks form POSTs against it and answers 403 if it does not match, so change it with `FRONTEND_HOST_PORT`. |
 | `FRONTEND_HOST_PORT` | `3000` | |
-| `BACKEND_HOST_PORT` | `8000` | |
-| `DYNAMODB_HOST_PORT` | `8001` | 8001 because the backend has 8000. |
+| `FRONTEND_BIND` | `0.0.0.0` | Published to the network so a phone can reach it. Set to `127.0.0.1` for this machine only. |
+| `BACKEND_HOST_PORT` | `8000` | Bound to 127.0.0.1. A profile id is the only credential the API takes, so it is deliberately not reachable from the network. |
+| `DYNAMODB_HOST_PORT` | `8001` | 8001 because the backend has 8000. Bound to 127.0.0.1. |
 
 No secrets are committed, and none are needed — the only credentials in the
 stack are the dummy values above.

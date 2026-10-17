@@ -6,7 +6,14 @@ import boto3
 from boto3.dynamodb.conditions import Attr, Key
 
 from hard.aws.dynamodb.base_object import DB_OBJECT_TYPE
-from hard.aws.dynamodb.consts import DB_PARTITION, DB_SORT_KEY, PARTITION_TEMPLATE
+from hard.aws.dynamodb.consts import (
+    DB_PARTITION,
+    DB_SORT_KEY,
+    ITEM_INDEX_NAME,
+    ITEM_INDEX_PARTITION,
+    PARTITION_TEMPLATE,
+    ItemNotFoundError,
+)
 from hard.aws.dynamodb.object_type import ObjectType
 from hard.aws.models.user import User
 
@@ -70,8 +77,22 @@ class DynamoDB:
         if secondary_index_name:
             kwargs.update({"IndexName": secondary_index_name})
 
-        response = self._table.query(**kwargs)
-        return response["Items"]
+        # DynamoDB caps a Query response at 1MB and reports the cut-off in
+        # `LastEvaluatedKey`. Returning only the first page silently truncated
+        # results -- no error, just missing items once a profile had enough of
+        # them. A filter expression makes this likelier still, since the cap
+        # applies to items *read*, not items returned, so a filtered page can
+        # come back empty while more matches wait behind the cursor.
+        items = []
+        while True:
+            response = self._table.query(**kwargs)
+            items.extend(response["Items"])
+
+            last_key = response.get("LastEvaluatedKey")
+            if not last_key:
+                return items
+
+            kwargs["ExclusiveStartKey"] = last_key
 
     def batch_get(
         self,
@@ -93,6 +114,14 @@ class DynamoDB:
             # guarding here covers the ones that do not.
             return []
 
+        if search_attr == ITEM_INDEX_PARTITION:
+            # `object_id` is the ItemSearch partition key, so each wanted item
+            # is a point lookup. The fallback below reads the caller's entire
+            # partition and discards the misses server-side -- DynamoDB bills
+            # for items *read*, so fetching three sets re-read every set the
+            # profile had ever logged.
+            return self._get_many_by_object_id(user, target_object_cls, matches_list)
+
         partition = PARTITION_TEMPLATE.format(
             **{
                 "user_id": user.id,
@@ -106,11 +135,57 @@ class DynamoDB:
         objects = [target_object_cls.from_db(item) for item in json_items]
         return objects
 
-    def put(self, /, data_object: DB_OBJECT_TYPE) -> DB_OBJECT_TYPE:
+    def _get_many_by_object_id(
+        self,
+        user: User,
+        target_object_cls: Type[DB_OBJECT_TYPE],
+        object_ids: list[str],
+    ) -> list[DB_OBJECT_TYPE]:
         """
-        'Puts' the given `data_object` into the DynamoDB table
+        Fetches items by `object_id` through the ItemSearch index.
+
+        One small query per id, rather than one large read of the whole
+        partition. Ownership is still checked here, because the index is
+        global: it is keyed only on `object_id` and spans every profile.
         """
-        self._table.put_item(Item=data_object.to_db())
+        objects = []
+
+        for object_id in dict.fromkeys(object_ids):
+            items = self.query(
+                secondary_index_name=ITEM_INDEX_NAME,
+                key_expression=Key(ITEM_INDEX_PARTITION).eq(str(object_id)),
+            )
+
+            for item in items:
+                candidate = target_object_cls.from_db(dict(item))
+                if candidate.owned_by(user):
+                    objects.append(candidate)
+
+        return objects
+
+    def put(
+        self, /, data_object: DB_OBJECT_TYPE, must_exist: bool = False
+    ) -> DB_OBJECT_TYPE:
+        """
+        'Puts' the given `data_object` into the DynamoDB table.
+
+        `must_exist` is for updates. `RestProcesses.put` reads the item before
+        writing it, and without a condition anything that deleted it in
+        between would be undone -- delete a workout in one tab, save an edit
+        in another, and it comes back. The condition closes that window.
+        """
+        kwargs = {"Item": data_object.to_db()}
+
+        if must_exist:
+            kwargs["ConditionExpression"] = Attr(DB_PARTITION).exists()
+
+        try:
+            self._table.put_item(**kwargs)
+        except self._client.meta.client.exceptions.ConditionalCheckFailedException:
+            raise ItemNotFoundError(
+                f"`{data_object.object_type.value}` Item no longer exists: Cannot Update"
+            )
+
         return data_object
 
     def delete(self, /, data_object: DB_OBJECT_TYPE) -> DB_OBJECT_TYPE:
@@ -125,6 +200,18 @@ class DynamoDB:
             }
         )
         return data_object
+
+
+    def delete_raw(self, /, partition_key: str, sort_key: str) -> None:
+        """
+        Deletes by key, without needing the item parsed into a model.
+
+        Cascading a profile delete spans every object type, so the rows come
+        back as plain dicts rather than a single model class.
+        """
+        self._table.delete_item(
+            Key={DB_PARTITION: partition_key, DB_SORT_KEY: sort_key}
+        )
 
 
 def get_db_instance() -> DynamoDB:

@@ -2,7 +2,6 @@
 	import InlineSetEdit from '$lib/hard-components/inline-set-edit.svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as Card from '$lib/components/ui/card';
-	import Input from '$lib/components/ui/input/input.svelte';
 	import { buttonVariants } from '$lib/components/ui/button';
 	import type { Set } from '$lib/types';
 	import ConfirmDelete from '$lib/hard-components/confirm-delete-set.svelte';
@@ -20,25 +19,22 @@
 	let updatedNotes = set.notes;
 
 	async function updateSet() {
-		const response = await fetch(
-			`/api/sets/${set.objectId}`,
-			{
-				method: 'PUT',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					timestamp: set.timestamp,
-					objectId: set.objectId,
-					setType: set.setType,
-					weight: updatedWeight,
-					weightUnit: set.weightUnit,
-					reps: updatedReps,
-					notes: updatedNotes,
-					exerciseJoinId: set.exerciseJoinId
-				})
-			}
-		);
+		const response = await fetch(`/api/sets/${set.objectId}`, {
+			method: 'PUT',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				timestamp: set.timestamp,
+				objectId: set.objectId,
+				setType: set.setType,
+				weight: updatedWeight,
+				weightUnit: set.weightUnit,
+				reps: updatedReps,
+				notes: updatedNotes,
+				exerciseJoinId: set.exerciseJoinId
+			})
+		});
 
 		if (!response.ok) {
 			console.error('Failed to update set: ', set);

@@ -42,16 +42,7 @@
 			newExerciseName = '';
 			newExerciseDescription = '';
 
-			const json = await response.json();
-			const createdExercise = {
-				userId: json.user_id,
-				timestamp: json.timestamp,
-				objectType: json.object_type,
-				objectId: json.object_id,
-				name: json.name,
-				description: json.description,
-				tags: []
-			};
+			const createdExercise: Exercise = await response.json();
 			exercises.push(createdExercise);
 			exercises = exercises;
 
@@ -60,12 +51,9 @@
 	}
 
 	async function deleteExercise(exercise: Exercise) {
-		const response = await fetch(
-			`/api/exercises/${exercise.objectId}`,
-			{
-				method: 'DELETE'
-			}
-		);
+		const response = await fetch(`/api/exercises/${exercise.objectId}`, {
+			method: 'DELETE'
+		});
 
 		if (!response.ok) {
 			console.error('Failed to delete exercise: ', exercise);

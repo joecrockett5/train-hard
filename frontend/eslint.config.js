@@ -25,6 +25,16 @@ export default [
 			parserOptions: {
 				parser: ts.parser
 			}
+		},
+		rules: {
+			// $$Props and $$Events declare a Svelte component's public
+			// contract. Nothing references them by name, so no-unused-vars
+			// flags every shadcn-svelte component; removing them would
+			// silently drop the component's typing.
+			'@typescript-eslint/no-unused-vars': [
+				'error',
+				{ varsIgnorePattern: '^\\$\\$(Props|Events|Slots|Generic)$' }
+			]
 		}
 	},
 	{

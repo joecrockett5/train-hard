@@ -5,12 +5,13 @@ from uuid import UUID
 from fastapi import APIRouter
 from starlette.requests import Request
 
-from hard.app.processes import RestProcesses, workout_date_filter
+from hard.app.processes import RestProcesses, workout_date_filter, workout_detail
 from hard.aws.dynamodb.handler import get_db_instance
 from hard.aws.interfaces.fastapi import request
 from hard.models.exercise_join import ExerciseJoin
 from hard.models.set import Set
 from hard.models.workout import Workout
+from hard.models.workout_detail import WorkoutDetail
 
 router = APIRouter(prefix="/workouts")
 
@@ -37,6 +38,19 @@ async def get_workout(
     workout = RestProcesses.get(Workout, user, UUID(workout_id))
 
     return workout
+
+
+@router.get("/{workout_id}/detail", response_model=WorkoutDetail)
+async def get_workout_detail(
+    req: Request,
+    workout_id: str,
+) -> WorkoutDetail:
+    """
+    The workout, its exercises with their sets, and every exercise the profile
+    has. Replaces the request-per-exercise fan-out the page used to do.
+    """
+    user = request.get_user_claims(req)
+    return workout_detail(user, UUID(workout_id))
 
 
 @router.post("", response_model=Workout, status_code=201)

@@ -1,0 +1,25 @@
+{
+	"name": "hard",
+	"short_name": "hard",
+	"description": "Workout tracking",
+	"start_url": "/",
+	"scope": "/",
+	"display": "standalone",
+	"orientation": "portrait",
+	"background_color": "#ffffff",
+	"theme_color": "#e4572e",
+	"icons": [
+		{
+			"src": "/hard-logo.png",
+			"sizes": "500x500",
+			"type": "image/png",
+			"purpose": "any"
+		},
+		{
+			"src": "/favicon.png",
+			"sizes": "128x128",
+			"type": "image/png",
+			"purpose": "any"
+		}
+	]
+}

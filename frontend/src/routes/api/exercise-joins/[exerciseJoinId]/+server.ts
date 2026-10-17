@@ -1,98 +1,48 @@
-import { env } from '$env/dynamic/private';
 import { type RequestHandler } from '@sveltejs/kit';
-import { type RawSet } from '$lib/types';
-import { type Exercise } from '$lib/types';
+import { backendJson, handle, query } from '$lib/server/backend';
+import { fromExerciseJoin, toExercise, toSet, type RawExercise } from '$lib/mapping';
+import { type RawExerciseJoin, type RawSet } from '$lib/types';
 
-export const GET: RequestHandler = async ({ url, params, locals }) => {
-	const { exerciseJoinId } = params;
-	console.log(`GET /api/exercise-joins/${exerciseJoinId}`);
-	const profileId = locals.profileId;
-	if (!profileId) {
-		console.log('No profile selected');
-		return new Response('Unauthorized', { status: 401 });
-	}
-	const response = await fetch(`${env.HARD_API}/exercise-joins/${exerciseJoinId}`, {
-		headers: { 'X-Profile-Id': profileId }
+/** The join, resolved into the exercise it points at, with that join's sets. */
+export const GET: RequestHandler = ({ params, locals }) =>
+	handle(locals, async (profileId) => {
+		const join = await backendJson<RawExerciseJoin>(
+			profileId,
+			`/exercise-joins/${params.exerciseJoinId}`
+		);
+
+		const [exercise, sets] = await Promise.all([
+			backendJson<RawExercise>(profileId, `/exercises/${join.exercise_id}`),
+			backendJson<RawSet[]>(profileId, `/sets${query({ exercise: join.exercise_id })}`)
+		]);
+
+		return {
+			// Name and description come from the exercise. This used to read
+			// them from the join's non-existent `title` and `notes`.
+			...toExercise(exercise),
+			joinId: join.object_id,
+			workoutId: join.workout_id,
+			tags: [],
+			sets: sets.filter((set) => set.exercise_join_id === join.object_id).map(toSet)
+		};
 	});
-	const exerciseJoin = await response.json();
 
-	const exerciseResponse = await fetch(`${env.HARD_API}/exercises/${exerciseJoin.exercise_id}`, {
-		headers: { 'X-Profile-Id': profileId }
+export const PUT: RequestHandler = ({ params, request, locals }) =>
+	handle(locals, async (profileId) => {
+		const raw = await backendJson<RawExerciseJoin>(
+			profileId,
+			// Previously read params.exercisejoinId, which does not exist --
+			// the route parameter is [exerciseJoinId] -- so this requested
+			// /exercise-joins/undefined.
+			`/exercise-joins/${params.exerciseJoinId}`,
+			{ method: 'PUT', json: fromExerciseJoin(await request.json()) }
+		);
+		return raw;
 	});
-	const exerciseData = await exerciseResponse.json();
 
-	const setsResponse = await fetch(`${env.HARD_API}/sets?exercise=${exerciseJoin.exercise_id}`, {
-		headers: { 'X-Profile-Id': profileId }
-	});
-	const setsData = await setsResponse.json();
-
-	const formattedBody = {
-		userId: exerciseJoin.user_id,
-		timestamp: exerciseJoin.timestamp,
-		objectType: exerciseData.object_type,
-		objectId: exerciseData.object_id,
-		joinId: exerciseJoin.object_id,
-		workoutId: exerciseJoin.workout_id,
-		name: exerciseJoin.title,
-		description: exerciseJoin.notes,
-		// Nothing in this handler fetches tags; `exerciseTags` was never
-		// defined, so this field has always been undefined at runtime.
-		tags: [],
-		sets: setsData.map((set: RawSet) => {
-			return {
-				userId: set.user_id,
-				timestamp: set.timestamp,
-				objectType: set.object_type,
-				objectId: set.object_id,
-				setType: set.set_type,
-				weight: set.weight,
-				// The backend calls this `unit`; `weight_unit` does not exist on
-				// the payload, so this was always undefined.
-				weightUnit: set.unit,
-				reps: set.reps,
-				notes: set.notes,
-				exerciseJoinId: set.exercise_join_id
-			};
+export const DELETE: RequestHandler = ({ params, locals }) =>
+	handle(locals, async (profileId) =>
+		backendJson<RawExerciseJoin>(profileId, `/exercise-joins/${params.exerciseJoinId}`, {
+			method: 'DELETE'
 		})
-	};
-	return new Response(JSON.stringify(formattedBody), {
-		status: response.status,
-		headers: response.headers
-	});
-};
-
-export const PUT: RequestHandler = async ({ url, params, request, locals }) => {
-	const { exercisejoinId } = params;
-	console.log(`PUT /api/exercise-joins/${exercisejoinId}`);
-	const profileId = locals.profileId;
-	if (!profileId) {
-		console.log('No profile selected');
-		return new Response('Unauthorized', { status: 401 });
-	}
-	const json = await request.json();
-	const formattedBody = {
-		workout_id: json.workoutId,
-		exercise_id: json.exerciseId
-	};
-	const response = await fetch(`${env.HARD_API}/exercise-joins/${exercisejoinId}`, {
-		method: 'PUT',
-		headers: { 'X-Profile-Id': profileId },
-		body: JSON.stringify(formattedBody)
-	});
-	return response;
-};
-
-export const DELETE: RequestHandler = async ({ url, params, locals }) => {
-	const { exercisejoinId } = params;
-	console.log(`DELETE /api/exercise-joins/${exercisejoinId}`);
-	const profileId = locals.profileId;
-	if (!profileId) {
-		console.log('No profile selected');
-		return new Response('Unauthorized', { status: 401 });
-	}
-	const response = await fetch(`${env.HARD_API}/exercise-joins/${exercisejoinId}`, {
-		method: 'DELETE',
-		headers: { 'X-Profile-Id': profileId }
-	});
-	return response;
-};
+	);

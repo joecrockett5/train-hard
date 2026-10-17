@@ -2,7 +2,7 @@ from uuid import UUID
 
 from fastapi import APIRouter
 
-from hard.app.processes import RestProcesses
+from hard.app.processes import RestProcesses, delete_profile_data
 from hard.aws.dynamodb.consts import SYSTEM_USER_ID
 from hard.aws.models.user import User
 from hard.models.profile import Profile
@@ -39,11 +39,14 @@ async def update_profile(profile_id: str, profile: Profile) -> Profile:
 @router.delete("/{profile_id}", response_model=Profile)
 async def delete_profile(profile_id: str) -> Profile:
     """
-    Removes the profile from the registry.
+    Removes the profile and everything it owns.
 
-    Data owned by the profile is left in place: it is partitioned by the
-    profile's `object_id`, so re-creating a profile with the same id would
-    bring it back. Nothing in the UI does that; it is a deliberate choice not
-    to cascade a delete across every workout, exercise and set.
+    The profile row is deleted last, so a failure part-way through leaves the
+    profile still listed and the delete repeatable, rather than orphaning the
+    data behind a profile that no longer appears.
     """
+    deleted_counts = delete_profile_data(profile_id)
+    if deleted_counts:
+        print(f"Deleted data for profile {profile_id}: {deleted_counts}", flush=True)
+
     return RestProcesses.delete(Profile, SYSTEM_USER, UUID(profile_id))

@@ -1,6 +1,6 @@
 import { env } from '$env/dynamic/private';
 import { redirect } from '@sveltejs/kit';
-import { PROFILE_COOKIE } from '$lib/server/profile';
+import { cacheProfile, forgetProfile, getCachedProfile, PROFILE_COOKIE } from '$lib/server/profile';
 import type { LayoutServerLoad } from './$types';
 
 /**
@@ -20,6 +20,11 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 		return { profile: null };
 	}
 
+	const cached = getCachedProfile(locals.profileId);
+	if (cached) {
+		return { profile: cached };
+	}
+
 	let response: Response;
 	try {
 		response = await fetch(`${env.HARD_API}/profiles/${locals.profileId}`);
@@ -28,6 +33,7 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 	}
 
 	if (response.status === 404) {
+		forgetProfile(locals.profileId);
 		cookies.delete(PROFILE_COOKIE, { path: '/' });
 		locals.profileId = undefined;
 
@@ -42,5 +48,5 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 	}
 
 	const raw = await response.json();
-	return { profile: { objectId: raw.object_id, name: raw.name } };
+	return { profile: cacheProfile({ objectId: raw.object_id, name: raw.name }) };
 };

@@ -53,23 +53,20 @@
 		);
 		const joinJson = await response.json();
 		const join = joinJson[0];
-		const createSetResponse = await fetch(
-			`/api/sets`,
-			{
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					setType: 'warmup',
-					weight: warmupSetWeight,
-					weightUnit: 'kg',
-					reps: warmupSetReps,
-					notes: warmupSetNotes,
-					exerciseJoinId: join.objectId
-				})
-			}
-		);
+		const createSetResponse = await fetch(`/api/sets`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				setType: 'warmup',
+				weight: warmupSetWeight,
+				weightUnit: 'kg',
+				reps: warmupSetReps,
+				notes: warmupSetNotes,
+				exerciseJoinId: join.objectId
+			})
+		});
 		creatingWarmupSet.set(false);
 		if (createSetResponse.ok) {
 			const set = await createSetResponse.json();
@@ -91,23 +88,20 @@
 		);
 		const joinJson = await response.json();
 		const join = joinJson[0];
-		const createSetResponse = await fetch(
-			`/api/sets`,
-			{
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					setType: 'working',
-					weight: workingSetWeight,
-					weightUnit: 'kg',
-					reps: workingSetReps,
-					notes: workingSetNotes,
-					exerciseJoinId: join.objectId
-				})
-			}
-		);
+		const createSetResponse = await fetch(`/api/sets`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				setType: 'working',
+				weight: workingSetWeight,
+				weightUnit: 'kg',
+				reps: workingSetReps,
+				notes: workingSetNotes,
+				exerciseJoinId: join.objectId
+			})
+		});
 		creatingWorkingSet.set(false);
 		if (createSetResponse.ok) {
 			const set = await createSetResponse.json();
@@ -123,12 +117,9 @@
 	}
 
 	async function deleteSet(set: Set) {
-		const response = await fetch(
-			`/api/sets/${set.objectId}`,
-			{
-				method: 'DELETE'
-			}
-		);
+		const response = await fetch(`/api/sets/${set.objectId}`, {
+			method: 'DELETE'
+		});
 
 		if (!response.ok) {
 			console.error('Failed to delete set: ', set);
@@ -146,9 +137,7 @@
 	let oldInstances: Record<string, Set[]> | undefined;
 
 	async function fetchOldSets() {
-		const response = await fetch(
-			`/api/sets/recent?exercise=${exercise.objectId}`
-		);
+		const response = await fetch(`/api/sets/recent?exercise=${exercise.objectId}`);
 		if (!response.ok) {
 			console.error(`Failed to fetch old sets for ${exercise.name}, got ${response.status}`);
 			return;

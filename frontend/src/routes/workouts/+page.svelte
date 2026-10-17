@@ -22,36 +22,7 @@
 		selectedDate.set(parseDate(customDate));
 	}
 
-	const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 	const japaneseWeekdays = ['日曜', '月曜', '火曜', '水曜', '木曜', '金曜', '土曜'];
-	const months = [
-		'January',
-		'February',
-		'March',
-		'April',
-		'May',
-		'June',
-		'July',
-		'August',
-		'September',
-		'October',
-		'November',
-		'December'
-	];
-
-	const nthNumber = (number: number) => {
-		if (number > 3 && number < 21) return 'th';
-		switch (number % 10) {
-			case 1:
-				return 'st';
-			case 2:
-				return 'nd';
-			case 3:
-				return 'rd';
-			default:
-				return 'th';
-		}
-	};
 
 	$: asDate = $selectedDate.toDate(getLocalTimeZone());
 	$: shortDate = `${asDate.getFullYear()}年${asDate.getMonth() + 1}月${asDate.getDate()}日`;
@@ -98,17 +69,7 @@
 			newWorkoutTitle = '';
 			newWorkoutNotes = '';
 
-			const json = await response.json();
-			const createdWorkout: WorkoutInfo = {
-				userId: json.user_id,
-				timestamp: json.timestamp,
-				objectType: json.object_type,
-				objectId: json.object_id,
-				title: json.title,
-				notes: json.notes,
-				workoutDate: json.workout_date,
-				tags: []
-			};
+			const createdWorkout: WorkoutInfo = await response.json();
 			workouts.push(createdWorkout);
 			workouts = workouts;
 		}

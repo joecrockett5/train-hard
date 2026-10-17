@@ -1,64 +1,56 @@
-import { env } from '$env/dynamic/private';
-import { type RequestHandler } from '@sveltejs/kit';
+import { error, type RequestHandler } from '@sveltejs/kit';
+import { backendJson, handle, query } from '$lib/server/backend';
+import { toSet } from '$lib/mapping';
 import { type RawExerciseJoin, type RawSet, type Set } from '$lib/types';
 
-export const GET: RequestHandler = async ({ url, locals }) => {
-	// Need to update backend to allow for filtering by set_date
-	// will then add tag support
-	const exerciseId = url.searchParams.get('exercise');
-	console.log('GET /api/sets/recent' + (exerciseId ? '?exercise=' + exerciseId : ''));
-	const profileId = locals.profileId;
-	if (!profileId) {
-		console.log('No profile selected');
-		return new Response('Unauthorized', { status: 401 });
-	}
-	if (!exerciseId) {
-		console.log('Missing exerciseId');
-		return new Response('Missing exerciseId', { status: 400 });
-	}
-	// get ex joins where exercise_id = exerciseId
-	const exJoinsResponse = await fetch(`${env.HARD_API}/exercise-joins?exercise=${exerciseId}`, {
-		headers: { 'X-Profile-Id': profileId }
-	});
-	const exJoins: RawExerciseJoin[] = await exJoinsResponse.json();
-	if (exJoins.length < 2) {
-		return new Response('No other instances found', { status: 404 });
-	}
-	// order by timestamp desc
-	exJoins.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-	exJoins.shift(); // remove first element (current instance)
-	const last3 = exJoins.splice(0, 3);
+/** How many previous sessions of an exercise the history popover shows. */
+const HISTORY_LENGTH = 3;
 
-	// get sets where exercise_join_id = ex joins
-	const setsResponse = await fetch(`${env.HARD_API}/sets?exercise=${exerciseId}`, {
-		headers: { 'X-Profile-Id': profileId }
-	});
-	const rawSets: RawSet[] = await setsResponse.json();
-	const recentInstances: Record<string, Set[]> = {};
-	for (const join of last3) {
-		let relevantSets = rawSets
-			.filter((set) => join.object_id === set.exercise_join_id)
-			.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+/**
+ * The sets logged for an exercise in its previous sessions, keyed by when
+ * that session happened. The most recent join is the session in progress, so
+ * it is dropped.
+ */
+export const GET: RequestHandler = ({ url, locals }) =>
+	handle(locals, async (profileId) => {
+		const exercise = url.searchParams.get('exercise');
 
-		const sets: Set[] = [];
-		for (const set of relevantSets) {
-			sets.push({
-				userId: set.user_id,
-				timestamp: set.timestamp,
-				objectType: set.object_type,
-				objectId: set.object_id,
-				setType: set.set_type,
-				weight: set.weight,
-				weightUnit: set.unit,
-				reps: set.reps,
-				notes: set.notes,
-				exerciseJoinId: set.exercise_join_id
-			});
+		if (!exercise) {
+			error(400, 'exercise is required');
 		}
 
-		recentInstances[join.timestamp] = sets;
-	}
-	return new Response(JSON.stringify(recentInstances), {
-		status: 200
+		const joins = await backendJson<RawExerciseJoin[]>(
+			profileId,
+			`/exercise-joins${query({ exercise })}`
+		);
+
+		if (joins.length < 2) {
+			error(404, 'No other instances found');
+		}
+
+		const previous = joins
+			.slice()
+			.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+			.slice(1, 1 + HISTORY_LENGTH);
+
+		const raw = await backendJson<RawSet[]>(profileId, `/sets${query({ exercise })}`);
+
+		const byJoin = new Map<string, RawSet[]>();
+		for (const set of raw) {
+			const bucket = byJoin.get(set.exercise_join_id);
+			if (bucket) {
+				bucket.push(set);
+			} else {
+				byJoin.set(set.exercise_join_id, [set]);
+			}
+		}
+
+		const instances: Record<string, Set[]> = {};
+		for (const join of previous) {
+			instances[join.timestamp] = (byJoin.get(join.object_id) ?? [])
+				.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+				.map(toSet);
+		}
+
+		return instances;
 	});
-};

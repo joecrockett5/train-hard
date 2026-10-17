@@ -16,21 +16,18 @@
 	let updatedDescription = exercise.description;
 
 	async function updateExercise() {
-		const response = await fetch(
-			`/api/exercises/${exercise.objectId}`,
-			{
-				method: 'PUT',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					timestamp: exercise.timestamp,
-					objectId: exercise.objectId,
-					name: updatedName,
-					description: updatedDescription
-				})
-			}
-		);
+		const response = await fetch(`/api/exercises/${exercise.objectId}`, {
+			method: 'PUT',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				timestamp: exercise.timestamp,
+				objectId: exercise.objectId,
+				name: updatedName,
+				description: updatedDescription
+			})
+		});
 
 		if (!response.ok) {
 			console.error('Failed to update exercise: ', exercise);

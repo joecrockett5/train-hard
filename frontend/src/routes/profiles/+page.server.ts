@@ -1,6 +1,11 @@
 import { env } from '$env/dynamic/private';
 import { fail, redirect, type Actions } from '@sveltejs/kit';
-import { PROFILE_COOKIE, PROFILE_COOKIE_OPTIONS } from '$lib/server/profile';
+import {
+	cacheProfile,
+	forgetProfile,
+	PROFILE_COOKIE,
+	PROFILE_COOKIE_OPTIONS
+} from '$lib/server/profile';
 import type { PageServerLoad } from './$types';
 
 type BackendProfile = {
@@ -62,6 +67,7 @@ export const actions: Actions = {
 			return fail(400, { message: 'Pick a profile' });
 		}
 
+		forgetProfile(profileId);
 		cookies.set(PROFILE_COOKIE, profileId, PROFILE_COOKIE_OPTIONS);
 		redirect(303, redirectTo);
 	},
@@ -88,6 +94,7 @@ export const actions: Actions = {
 		}
 
 		const created: BackendProfile = await response.json();
+		cacheProfile({ objectId: created.object_id, name: created.name });
 		cookies.set(PROFILE_COOKIE, created.object_id, PROFILE_COOKIE_OPTIONS);
 		redirect(303, redirectTo);
 	},
