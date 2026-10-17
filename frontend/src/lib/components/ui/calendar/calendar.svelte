@@ -100,7 +100,11 @@
 		>
 			Today
 		</Button>
-		<Button class="mt-2 flex" variant="outline" on:click={() => value && (value = value.add({ days: 1 }))}>
+		<Button
+			class="mt-2 flex"
+			variant="outline"
+			on:click={() => value && (value = value.add({ days: 1 }))}
+		>
 			&gt;
 		</Button>
 	</div>

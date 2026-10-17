@@ -90,7 +90,19 @@ docker compose --profile test run --rm test
 ```
 
 It uses `moto` to mock DynamoDB, so it needs neither the `dynamodb` service
-nor any credentials.
+nor any credentials. It covers the data layer and drives the real FastAPI app
+through a `TestClient`.
+
+The frontend's checks need Node on the host:
+
+```bash
+cd frontend && npm ci && npm run check && npm run lint && npm test
+```
+
+`npm run check` is `svelte-check`, `npm test` is Vitest. All four of these
+gates run on every push and pull request; see `.github/workflows/ci.yml`,
+which also brings the whole stack up from a clean checkout, logs a set end to
+end, and asserts the data survives a restart.
 
 ## Resetting the database
 

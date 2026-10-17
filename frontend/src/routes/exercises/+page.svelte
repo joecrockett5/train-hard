@@ -51,12 +51,9 @@
 	}
 
 	async function deleteExercise(exercise: Exercise) {
-		const response = await fetch(
-			`/api/exercises/${exercise.objectId}`,
-			{
-				method: 'DELETE'
-			}
-		);
+		const response = await fetch(`/api/exercises/${exercise.objectId}`, {
+			method: 'DELETE'
+		});
 
 		if (!response.ok) {
 			console.error('Failed to delete exercise: ', exercise);

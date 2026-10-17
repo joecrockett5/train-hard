@@ -10,7 +10,6 @@
 	import Input from '$lib/components/ui/input/input.svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { goto } from '$app/navigation';
-	import { getLocalTimeZone } from '@internationalized/date';
 
 	export let data;
 
@@ -45,19 +44,16 @@
 
 	const addExercise = async (exercise: Exercise) => {
 		console.log(`adding exercise: ${exercise.name}`);
-		const response = await fetch(
-			`/api/exercise-joins`,
-			{
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					workoutId: workoutInfo.objectId,
-					exerciseId: exercise.objectId
-				})
-			}
-		);
+		const response = await fetch(`/api/exercise-joins`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				workoutId: workoutInfo.objectId,
+				exerciseId: exercise.objectId
+			})
+		});
 		if (!response.ok) {
 			console.log(`Unable to create exercise-join for '${exercise.name}'`);
 		} else {
@@ -87,12 +83,9 @@
 	};
 
 	async function deleteWorkout(workout: WorkoutInfo) {
-		const response = await fetch(
-			`/api/workouts/${workout.objectId}`,
-			{
-				method: 'DELETE'
-			}
-		);
+		const response = await fetch(`/api/workouts/${workout.objectId}`, {
+			method: 'DELETE'
+		});
 
 		if (!response.ok) {
 			console.error('Failed to delete workout: ', workout);

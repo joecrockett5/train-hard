@@ -23,9 +23,7 @@ export const GET: RequestHandler = ({ params, locals }) =>
 			joinId: join.object_id,
 			workoutId: join.workout_id,
 			tags: [],
-			sets: sets
-				.filter((set) => set.exercise_join_id === join.object_id)
-				.map(toSet)
+			sets: sets.filter((set) => set.exercise_join_id === join.object_id).map(toSet)
 		};
 	});
 

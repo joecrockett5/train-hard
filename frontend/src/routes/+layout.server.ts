@@ -1,11 +1,6 @@
 import { env } from '$env/dynamic/private';
 import { redirect } from '@sveltejs/kit';
-import {
-	cacheProfile,
-	forgetProfile,
-	getCachedProfile,
-	PROFILE_COOKIE
-} from '$lib/server/profile';
+import { cacheProfile, forgetProfile, getCachedProfile, PROFILE_COOKIE } from '$lib/server/profile';
 import type { LayoutServerLoad } from './$types';
 
 /**

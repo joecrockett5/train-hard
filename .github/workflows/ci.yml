@@ -1,0 +1,123 @@
+name: CI
+
+on:
+  push:
+    branches: [main, japanese]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Runs in the same image the app ships in, so a dependency that is
+      # missing from the runtime fails here rather than in a container.
+      - name: Run pytest
+        run: docker compose --profile test run --rm --build test
+
+  frontend:
+    name: Frontend checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Type check
+        run: npm run check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+  stack:
+    name: Stack smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The definition of done for this repo is that a clean clone comes up
+      # with no manual steps, so CI asserts exactly that.
+      - name: docker compose up
+        run: docker compose up --build --detach --wait --wait-timeout 180
+
+      - name: Backend is healthy and reached DynamoDB
+        run: |
+          curl --fail --silent --show-error http://localhost:8000/health \
+            | tee /dev/stderr | grep -q '"dynamodb":"ok"'
+
+      - name: Tables were created
+        run: docker compose logs dynamodb-init | grep -qE "is ACTIVE|already exists"
+
+      - name: Create a profile and log a set end to end
+        run: |
+          set -euo pipefail
+
+          profile=$(curl --fail --silent -X POST http://localhost:8000/api/profiles \
+            -H 'Content-Type: application/json' -d '{"name":"ci"}' \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["object_id"])')
+
+          workout=$(curl --fail --silent -X POST http://localhost:8000/api/workouts \
+            -H 'Content-Type: application/json' -H "X-Profile-Id: $profile" \
+            -d '{"workout_date":"2026-01-01","title":"ci","notes":""}' \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["object_id"])')
+
+          # 80.1 is the weight that used to fail: Decimal(80.1) overruns
+          # DynamoDB's precision limit.
+          curl --fail --silent -X POST http://localhost:8000/api/sets \
+            -H 'Content-Type: application/json' -H "X-Profile-Id: $profile" \
+            -d '{"set_type":"working","weight":80.1,"unit":"kg","reps":5,
+                 "notes":"","exercise_join_id":"00000000-0000-0000-0000-000000000001"}' \
+            > /dev/null
+
+          curl --fail --silent -H "X-Profile-Id: $profile" \
+            "http://localhost:8000/api/workouts/$workout/detail" > /dev/null
+
+          echo "profile=$profile" >> "$GITHUB_ENV"
+
+      - name: Data survives a restart
+        run: |
+          set -euo pipefail
+          docker compose down
+          docker compose up --detach --wait --wait-timeout 180
+
+          curl --fail --silent -H "X-Profile-Id: ${profile}" \
+            http://localhost:8000/api/workouts \
+            | python3 -c 'import json,sys; assert len(json.load(sys.stdin)) == 1, "data did not persist"'
+
+      - name: The frontend serves its pages
+        run: |
+          set -euo pipefail
+          for path in / /profiles /workouts /exercises; do
+            code=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+              --cookie "profileId=${profile}" "http://localhost:3000${path}")
+            echo "$path -> $code"
+            [ "$code" = "200" ]
+          done
+
+      - name: Service logs on failure
+        if: failure()
+        run: docker compose logs --no-color --tail 200
+
+      - name: Tear down
+        if: always()
+        run: docker compose down --volumes

@@ -25,10 +25,7 @@ export const GET: RequestHandler = ({ params, locals }) =>
 			.slice()
 			.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
 
-		const workout = await backendJson<RawWorkout>(
-			profileId,
-			`/workouts/${mostRecent.workout_id}`
-		);
+		const workout = await backendJson<RawWorkout>(profileId, `/workouts/${mostRecent.workout_id}`);
 
 		return { workoutTitle: workout.title };
 	});

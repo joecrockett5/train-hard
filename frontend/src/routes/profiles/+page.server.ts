@@ -1,6 +1,11 @@
 import { env } from '$env/dynamic/private';
 import { fail, redirect, type Actions } from '@sveltejs/kit';
-import { cacheProfile, forgetProfile, PROFILE_COOKIE, PROFILE_COOKIE_OPTIONS } from '$lib/server/profile';
+import {
+	cacheProfile,
+	forgetProfile,
+	PROFILE_COOKIE,
+	PROFILE_COOKIE_OPTIONS
+} from '$lib/server/profile';
 import type { PageServerLoad } from './$types';
 
 type BackendProfile = {
