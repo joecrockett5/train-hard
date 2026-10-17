@@ -1,0 +1,24 @@
+# Run the published images instead of building locally.
+#
+#   IMAGE_REPO=ghcr.io/<owner>/<repo> \
+#     docker compose -f docker-compose.yml -f docker-compose.ghcr.yml up
+#
+# The CI pipeline pushes backend and frontend images on every push to main
+# and on v* tags. IMAGE_TAG selects which: `latest` tracks main, a version
+# like `1.2.0` pins a release, and a commit sha pins exactly one build.
+#
+# Nothing else changes -- DynamoDB, the table init and the volume are all
+# still defined in docker-compose.yml.
+
+services:
+  dynamodb-init:
+    image: ${IMAGE_REPO:?set IMAGE_REPO, e.g. ghcr.io/you/train-hard}/backend:${IMAGE_TAG:-latest}
+    build: !reset null
+
+  backend:
+    image: ${IMAGE_REPO:?set IMAGE_REPO, e.g. ghcr.io/you/train-hard}/backend:${IMAGE_TAG:-latest}
+    build: !reset null
+
+  frontend:
+    image: ${IMAGE_REPO:?set IMAGE_REPO, e.g. ghcr.io/you/train-hard}/frontend:${IMAGE_TAG:-latest}
+    build: !reset null

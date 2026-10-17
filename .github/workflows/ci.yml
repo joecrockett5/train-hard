@@ -3,28 +3,36 @@ name: CI
 on:
   push:
     branches: [main, japanese]
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
+# Only the newest run per branch matters; cancel older ones still going.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+# Least privilege by default. The publish job widens this for itself.
+permissions:
+  contents: read
 
 jobs:
   backend:
     name: Backend tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
       # Runs in the same image the app ships in, so a dependency that is
-      # missing from the runtime fails here rather than in a container.
+      # missing from the runtime fails here rather than in production.
       - name: Run pytest
         run: docker compose --profile test run --rm --build test
 
   frontend:
     name: Frontend checks
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: frontend
@@ -52,13 +60,14 @@ jobs:
   stack:
     name: Stack smoke test
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
       # The definition of done for this repo is that a clean clone comes up
       # with no manual steps, so CI asserts exactly that.
       - name: docker compose up
-        run: docker compose up --build --detach --wait --wait-timeout 180
+        run: docker compose up --build --detach --wait --wait-timeout 240
 
       - name: Backend is healthy and reached DynamoDB
         run: |
@@ -98,7 +107,7 @@ jobs:
         run: |
           set -euo pipefail
           docker compose down
-          docker compose up --detach --wait --wait-timeout 180
+          docker compose up --detach --wait --wait-timeout 240
 
           curl --fail --silent -H "X-Profile-Id: ${profile}" \
             http://localhost:8000/api/workouts \
@@ -121,3 +130,74 @@ jobs:
       - name: Tear down
         if: always()
         run: docker compose down --volumes
+
+  publish:
+    name: Publish images
+    # Nothing ships unless all three gates are green.
+    needs: [backend, frontend, stack]
+    # Pull requests run the gates but never publish. `on.push` already
+    # restricts this to main, japanese and v* tags, so a push is enough.
+    # metadata-action gives `latest` only to the default branch.
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      matrix:
+        include:
+          - service: backend
+            context: ./backend
+            target: base
+          - service: frontend
+            context: ./frontend
+            target: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # GHCR rejects uppercase in image names, and a repository name may
+      # contain it. `tr` rather than bash's ${v,,} so this does not depend on
+      # the runner's bash version.
+      - name: Resolve image name
+        id: image
+        run: |
+          owner_repo=$(printf '%s' "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')
+          echo "name=ghcr.io/${owner_repo}/${{ matrix.service }}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tags and labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.image.outputs.name }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,format=long
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          target: ${{ matrix.target }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Layer cache lives in the Actions cache, so unchanged dependency
+          # layers are not rebuilt on every push.
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+          provenance: false

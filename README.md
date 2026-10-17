@@ -104,6 +104,41 @@ gates run on every push and pull request; see `.github/workflows/ci.yml`,
 which also brings the whole stack up from a clean checkout, logs a set end to
 end, and asserts the data survives a restart.
 
+## CI/CD
+
+`.github/workflows/ci.yml` runs on every push to `main` or `japanese`, every
+pull request, and every `v*` tag.
+
+| Job | What it does |
+| --- | --- |
+| Backend tests | `pytest` inside the image the app actually ships, so a dependency missing from the runtime fails here rather than in production |
+| Frontend checks | `npm ci`, `svelte-check`, `prettier`/`eslint`, Vitest |
+| Stack smoke test | Brings the whole stack up from a clean checkout, asserts the backend reached DynamoDB and the tables exist, logs a set at 80.1 kg end to end, restarts and checks the data survived, then checks every page serves 200 |
+| Publish images | Builds and pushes `backend` and `frontend` to GHCR |
+
+The publish job `needs` all three gates, so nothing ships unless the tests
+pass. It skips pull requests entirely.
+
+### Images
+
+Pushed to `ghcr.io/<owner>/<repo>/backend` and `.../frontend`, tagged with the
+branch name, the full commit sha, and — on `main` — `latest`. A `v1.2.0` tag
+also produces `1.2.0` and `1.2`.
+
+They are private by default; make them public, or `docker login ghcr.io`
+first. To run them instead of building locally:
+
+```bash
+IMAGE_REPO=ghcr.io/<owner>/<repo>   docker compose -f docker-compose.yml -f docker-compose.ghcr.yml up
+```
+
+`IMAGE_TAG` picks the version (defaults to `latest`); pin a release or a
+commit sha for a reproducible run. DynamoDB, the table init and the volume
+still come from `docker-compose.yml`.
+
+Nothing deploys to a server — there is no hosting target configured. The
+pipeline's output is tested, tagged images.
+
 ## Resetting the database
 
 Data lives in a named volume, `train-hard-dynamodb-data`, so it survives
