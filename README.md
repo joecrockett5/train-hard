@@ -61,6 +61,76 @@ switch-profile option.
 This replaces the Cognito user pool the AWS version used. See
 [infra-legacy/README.md](infra-legacy/README.md) for what was removed.
 
+## Running it on a server
+
+Behind a reverse proxy (Nginx Proxy Manager, Caddy, Traefik) on your own
+network. The example uses `training.jmedia` on port 7999; substitute yours.
+
+**1. Clone it and write a `.env`.**
+
+```bash
+git clone <your-repo> train-hard && cd train-hard
+cp .env.example .env
+```
+
+Two values matter:
+
+```bash
+FRONTEND_HOST_PORT=7999          # the port the proxy forwards to
+ORIGIN=http://training.jmedia    # the URL the browser uses, exactly
+```
+
+`ORIGIN` is the one that catches people. SvelteKit compares it against the
+`Origin` header on every form POST, and selecting or creating a profile is a
+form POST. Get it wrong and those silently do nothing (a 403 the UI does not
+surface). Include the scheme; include a port only if the browser's address
+bar shows one. Behind a proxy on :80 it has no port, even though the
+container is published on 7999.
+
+**2. Bring it up.**
+
+```bash
+docker compose up -d --build
+```
+
+**3. Check it.**
+
+```bash
+curl http://localhost:8000/health      # {"status":"ok","dynamodb":"ok"}
+curl -I http://localhost:7999/         # 200
+docker compose ps                      # all three healthy
+```
+
+The backend and DynamoDB bind to `127.0.0.1` deliberately — a profile id is
+the only credential the API takes, so only the frontend is exposed. Your
+proxy only needs port 7999.
+
+**4. Point DNS and the proxy at it.**
+
+- Pi-hole: a local DNS record, `training.jmedia` → the server's LAN IP.
+- Nginx Proxy Manager: new Proxy Host, domain `training.jmedia`, scheme
+  `http`, forward to the server's LAN IP, port `7999`. Use the LAN IP rather
+  than `localhost` — NPM in a container resolves `localhost` to itself.
+
+**5. Open it, create a profile, done.**
+
+### Afterwards
+
+- **Reboots** are handled: every long-running service is `unless-stopped`, so
+  Docker brings them back. `dynamodb-init` does not re-run, which is correct —
+  the table is already in the volume.
+- **Backups.** All data is in the `train-hard-dynamodb-data` volume. To copy
+  it out:
+  ```bash
+  docker run --rm -v train-hard-dynamodb-data:/data -v "$PWD":/backup alpine \
+    tar czf /backup/hard-backup.tar.gz -C /data .
+  ```
+- **Updating.** `git pull && docker compose up -d --build`. The volume is
+  untouched, so your data stays.
+- **Service workers need HTTPS**, so over plain HTTP you get the app and the
+  home-screen icon but no offline caching. The browser still caches all JS and
+  CSS for a year regardless, so this costs you offline, not speed.
+
 ## Dev mode
 
 Hot reload for both services — backend via `uvicorn --reload`, frontend via
