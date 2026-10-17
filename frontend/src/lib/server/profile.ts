@@ -1,12 +1,40 @@
+import type { Cookies } from '@sveltejs/kit';
+
 /** Cookie holding the active profile id. Read in hooks.server.ts. */
 export const PROFILE_COOKIE = 'profileId';
 
-export const PROFILE_COOKIE_OPTIONS = {
-	path: '/',
-	httpOnly: true,
-	sameSite: 'lax',
-	maxAge: 60 * 60 * 24 * 365
-} as const;
+/**
+ * Options for the profile cookie, for a request arriving at `url`.
+ *
+ * `secure` has to be computed rather than fixed. SvelteKit's `cookies.set()`
+ * defaults it to true for every hostname except localhost, and a browser
+ * silently discards a Secure cookie delivered over plain HTTP. Served at
+ * something like http://training.jmedia that made selecting a profile appear
+ * to do nothing: the POST succeeded, the cookie came back, the browser threw
+ * it away, and the next request bounced to the picker again.
+ *
+ * Mirroring the request's own scheme fixes that, and means the cookie becomes
+ * Secure by itself the moment the app is served over HTTPS -- no setting to
+ * remember to change. Behind a reverse proxy the scheme comes from ORIGIN,
+ * which already has to be set for the CSRF check.
+ */
+export function profileCookieOptions(url: URL) {
+	return {
+		path: '/',
+		httpOnly: true,
+		sameSite: 'lax',
+		maxAge: 60 * 60 * 24 * 365,
+		secure: url.protocol === 'https:'
+	} as const;
+}
+
+/** Deleting a cookie has to match the attributes it was set with. */
+export function clearProfileCookie(cookies: Cookies, url: URL): void {
+	cookies.delete(PROFILE_COOKIE, {
+		path: '/',
+		secure: url.protocol === 'https:'
+	});
+}
 
 export type Profile = {
 	objectId: string;
