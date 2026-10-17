@@ -3,6 +3,7 @@ from decimal import Decimal
 from pydantic import field_serializer, field_validator
 
 from hard.aws.dynamodb.base_object import BaseObject
+from hard.aws.dynamodb.numbers import to_db_decimal
 from hard.aws.dynamodb.object_type import ObjectType
 from hard.models import SetType, WeightUnit
 
@@ -36,8 +37,8 @@ class Set(BaseObject):
 
     @field_serializer("weight")
     def serialize_weight(self, weight: float):
-        return Decimal(weight)
+        return to_db_decimal(weight)
 
     @field_serializer("reps")
     def serialize_reps(self, reps: float):
-        return Decimal(reps)
+        return to_db_decimal(reps)

@@ -70,8 +70,22 @@ class DynamoDB:
         if secondary_index_name:
             kwargs.update({"IndexName": secondary_index_name})
 
-        response = self._table.query(**kwargs)
-        return response["Items"]
+        # DynamoDB caps a Query response at 1MB and reports the cut-off in
+        # `LastEvaluatedKey`. Returning only the first page silently truncated
+        # results -- no error, just missing items once a profile had enough of
+        # them. A filter expression makes this likelier still, since the cap
+        # applies to items *read*, not items returned, so a filtered page can
+        # come back empty while more matches wait behind the cursor.
+        items = []
+        while True:
+            response = self._table.query(**kwargs)
+            items.extend(response["Items"])
+
+            last_key = response.get("LastEvaluatedKey")
+            if not last_key:
+                return items
+
+            kwargs["ExclusiveStartKey"] = last_key
 
     def batch_get(
         self,

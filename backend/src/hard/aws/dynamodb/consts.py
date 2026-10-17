@@ -1,8 +1,13 @@
+import os
+
 DB_PARTITION = "User_ObjectType"
 DB_SORT_KEY = "Timestamp"
 DELIMITER = "#"
 
-ITEM_INDEX_NAME = "ItemSearch"
+# Overridable so the compose file and serverless.yml remain the single source
+# of the index name; this was previously hardcoded while DYNAMO_ITEM_INDEX_NAME
+# was set in the environment and never read.
+ITEM_INDEX_NAME = os.getenv("DYNAMO_ITEM_INDEX_NAME", "ItemSearch")
 ITEM_INDEX_PARTITION = "object_id"
 
 PARTITION_TEMPLATE = "{user_id}" + DELIMITER + "{object_type}"
