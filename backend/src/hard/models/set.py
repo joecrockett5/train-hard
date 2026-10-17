@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from pydantic import field_serializer, field_validator
+from pydantic import FieldSerializationInfo, field_serializer, field_validator
 
 from hard.aws.dynamodb.base_object import BaseObject
 from hard.aws.dynamodb.numbers import to_db_decimal
@@ -35,10 +35,15 @@ class Set(BaseObject):
     def serialize_set_type(self, set_type: SetType):
         return set_type.value
 
+    # DynamoDB needs Decimal; the HTTP API should hand out JSON numbers. One
+    # serializer was doing both, so weight and reps reached the browser as
+    # strings -- which made the set-history comparison a string comparison,
+    # where "9" sorts above "80". Splitting on the serialization mode gives
+    # each consumer what it needs: model_dump() for to_db(), JSON for FastAPI.
     @field_serializer("weight")
-    def serialize_weight(self, weight: float):
-        return to_db_decimal(weight)
+    def serialize_weight(self, weight: float, info: FieldSerializationInfo):
+        return to_db_decimal(weight) if info.mode == "python" else weight
 
     @field_serializer("reps")
-    def serialize_reps(self, reps: float):
-        return to_db_decimal(reps)
+    def serialize_reps(self, reps: float, info: FieldSerializationInfo):
+        return to_db_decimal(reps) if info.mode == "python" else reps

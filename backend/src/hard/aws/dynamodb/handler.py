@@ -6,7 +6,13 @@ import boto3
 from boto3.dynamodb.conditions import Attr, Key
 
 from hard.aws.dynamodb.base_object import DB_OBJECT_TYPE
-from hard.aws.dynamodb.consts import DB_PARTITION, DB_SORT_KEY, PARTITION_TEMPLATE
+from hard.aws.dynamodb.consts import (
+    DB_PARTITION,
+    DB_SORT_KEY,
+    ITEM_INDEX_NAME,
+    ITEM_INDEX_PARTITION,
+    PARTITION_TEMPLATE,
+)
 from hard.aws.dynamodb.object_type import ObjectType
 from hard.aws.models.user import User
 
@@ -107,6 +113,14 @@ class DynamoDB:
             # guarding here covers the ones that do not.
             return []
 
+        if search_attr == ITEM_INDEX_PARTITION:
+            # `object_id` is the ItemSearch partition key, so each wanted item
+            # is a point lookup. The fallback below reads the caller's entire
+            # partition and discards the misses server-side -- DynamoDB bills
+            # for items *read*, so fetching three sets re-read every set the
+            # profile had ever logged.
+            return self._get_many_by_object_id(user, target_object_cls, matches_list)
+
         partition = PARTITION_TEMPLATE.format(
             **{
                 "user_id": user.id,
@@ -118,6 +132,34 @@ class DynamoDB:
             filter_expression=Attr(search_attr).is_in(matches_list),
         )
         objects = [target_object_cls.from_db(item) for item in json_items]
+        return objects
+
+    def _get_many_by_object_id(
+        self,
+        user: User,
+        target_object_cls: Type[DB_OBJECT_TYPE],
+        object_ids: list[str],
+    ) -> list[DB_OBJECT_TYPE]:
+        """
+        Fetches items by `object_id` through the ItemSearch index.
+
+        One small query per id, rather than one large read of the whole
+        partition. Ownership is still checked here, because the index is
+        global: it is keyed only on `object_id` and spans every profile.
+        """
+        objects = []
+
+        for object_id in dict.fromkeys(object_ids):
+            items = self.query(
+                secondary_index_name=ITEM_INDEX_NAME,
+                key_expression=Key(ITEM_INDEX_PARTITION).eq(str(object_id)),
+            )
+
+            for item in items:
+                candidate = target_object_cls.from_db(dict(item))
+                if candidate.owned_by(user):
+                    objects.append(candidate)
+
         return objects
 
     def put(self, /, data_object: DB_OBJECT_TYPE) -> DB_OBJECT_TYPE:

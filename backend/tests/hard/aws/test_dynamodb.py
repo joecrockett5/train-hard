@@ -101,3 +101,49 @@ class TestQueryPagination:
         items = db.query(key_expression=Key(DB_PARTITION).eq(partition))
 
         assert len(items) == expected
+
+
+@pytest.mark.usefixtures("env_vars", "set_up_aws_resources")
+class TestSetSerializationModes:
+    """
+    DynamoDB needs Decimal, the HTTP API needs JSON numbers. One serializer
+    used to do both, so weight and reps reached the browser as strings and the
+    set-history comparison compared them lexically ("9" above "80").
+    """
+
+    def build(self, weight, reps):
+        return Set.model_validate(
+            {
+                "user_id": MOCK_USER_ID,
+                "timestamp": "2024-05-06T00:00:00.000000",
+                "object_id": "11111111-1111-1111-1111-111111111111",
+                "set_type": "working",
+                "weight": weight,
+                "unit": "kg",
+                "reps": reps,
+                "notes": "",
+                "exercise_join_id": "22222222-2222-2222-2222-222222222222",
+            }
+        )
+
+    def test_storage_uses_decimal(self):
+        stored = self.build(80.1, 5).to_db()
+        assert stored["weight"] == Decimal("80.1")
+        assert isinstance(stored["weight"], Decimal)
+
+    @pytest.mark.parametrize("weight", [40, 80.5, 80.1, 102.7])
+    def test_json_uses_numbers(self, weight):
+        import json
+
+        payload = json.loads(self.build(weight, 5).model_dump_json())
+        assert isinstance(payload["weight"], (int, float))
+        assert payload["weight"] == pytest.approx(weight)
+        assert isinstance(payload["reps"], (int, float))
+
+    def test_json_numbers_compare_numerically(self):
+        import json
+
+        heavier = json.loads(self.build(80, 5).model_dump_json())["weight"]
+        lighter = json.loads(self.build(9, 5).model_dump_json())["weight"]
+        # As strings this assertion fails: "9" > "80".
+        assert heavier > lighter

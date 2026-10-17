@@ -23,6 +23,7 @@ from hard.models.set import Set
 from hard.models.tag import Tag
 from hard.models.tag_join import TagJoin
 from hard.models.workout import Workout
+from hard.models.workout_detail import ExerciseWithSets, WorkoutDetail
 
 
 class RestProcesses:
@@ -339,3 +340,59 @@ def tags_from_target_id(user: User, /, target_id: UUID) -> list[Tag]:
         matches_list=tag_ids,
     )
     return tags
+
+
+def workout_detail(user: User, workout_id: UUID) -> WorkoutDetail:
+    """
+    Everything the workout page needs, in four queries.
+
+    The page used to issue one request per exercise for its sets, on top of
+    three for the workout, its exercises and the full exercise list -- each of
+    which fanned out into further backend calls. A ten-exercise workout cost
+    roughly fourteen round trips across two hops.
+
+    Reading each collection once and joining here is flat in the number of
+    exercises: one lookup for the workout, plus one partition query each for
+    the profile's joins, exercises and sets.
+    """
+    workout = RestProcesses.get(Workout, user, workout_id)
+
+    joins = [
+        join
+        for join in RestProcesses.get_list(ExerciseJoin, user)
+        if join.workout_id == workout_id
+    ]
+    all_exercises = RestProcesses.get_list(Exercise, user)
+    all_sets = RestProcesses.get_list(Set, user)
+
+    exercises_by_id = {exercise.object_id: exercise for exercise in all_exercises}
+
+    sets_by_join: dict[str, list[Set]] = {}
+    for data_set in all_sets:
+        sets_by_join.setdefault(data_set.exercise_join_id, []).append(data_set)
+
+    exercises = []
+    for join in joins:
+        exercise = exercises_by_id.get(join.exercise_id)
+        if exercise is None:
+            # A join pointing at a deleted exercise. Skip it rather than
+            # failing the whole page.
+            continue
+
+        exercises.append(
+            ExerciseWithSets(
+                **exercise.model_dump(),
+                join_id=join.object_id,
+                workout_id=workout_id,
+                sets=sorted(
+                    sets_by_join.get(str(join.object_id), []),
+                    key=lambda item: item.timestamp,
+                ),
+            )
+        )
+
+    return WorkoutDetail(
+        workout=workout,
+        exercises=exercises,
+        all_exercises=all_exercises,
+    )
