@@ -1,5 +1,11 @@
+# Tests, formatting, and the file watcher uvicorn --reload needs. Not
+# installed into the runtime image.
 pytest==8.3.3
 pytest-dependency==0.6.0
 pytest-cov==5.0.0
 black==24.4.2
 moto[dynamodb]==5.0.20
+
+# uvicorn --reload refuses to start without this; the dev compose override
+# runs with --reload.
+watchfiles==0.22.0
