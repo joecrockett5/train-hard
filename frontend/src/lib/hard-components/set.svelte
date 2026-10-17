@@ -53,7 +53,7 @@
 <Card.Root class="w-full mt-2">
 	<div class="m-2">
 		<div class="flex justify-between items-center">
-			<p class="ml-4">{set.reps} レプス @ {set.weight} キロ</p>
+			<p class="ml-4">{set.reps} reps @ {set.weight} kg</p>
 
 			<div class="ml-auto">
 				{#if display !== undefined}

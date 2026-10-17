@@ -11,11 +11,11 @@
 <Dialog.Root>
 	<Dialog.Trigger class={buttonVariants({ variant: 'outline' }) + ' w-full text-gray-400 mt-1'}>
 		<Plus />
-		新しい {item}
+		New {item}
 	</Dialog.Trigger>
 	<Dialog.Content class={className + ' w-3/4 max-w-lg'}>
 		<Dialog.Header>
-			<Dialog.Title>新しい {item}</Dialog.Title>
+			<Dialog.Title>New {item}</Dialog.Title>
 			<Dialog.Description>
 				{description}
 			</Dialog.Description>

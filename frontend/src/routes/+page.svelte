@@ -3,7 +3,7 @@
 </script>
 
 <svelte:head>
-	<title>ハード：ホーム</title>
+	<title>hard: Home</title>
 </svelte:head>
 
 <img src="/hard-logo.png" alt="Hard Logo" class="mx-auto mt-12 mb-4 h-64 w-64 rounded-xl" />

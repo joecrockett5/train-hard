@@ -11,14 +11,14 @@
 </script>
 
 <svelte:head>
-	<title>ハード：プロフィール</title>
+	<title>hard: Profiles</title>
 </svelte:head>
 
 <img src="/hard-logo.png" alt="Hard Logo" class="mx-auto mt-12 mb-6 h-32 w-32 rounded-xl" />
 
 <Card.Root class="mx-auto max-w-md">
 	<Card.Header>
-		<Card.Title>プロフィールを選ぶ</Card.Title>
+		<Card.Title>Choose a profile</Card.Title>
 		<Card.Description>Pick a profile, or make a new one.</Card.Description>
 	</Card.Header>
 
@@ -57,9 +57,9 @@
 
 		<form method="POST" action="?/create" use:enhance class="flex flex-col gap-2">
 			<input type="hidden" name="redirectTo" value={data.redirectTo} />
-			<label for="name" class="text-sm font-semibold">新しいプロフィール</label>
-			<Input id="name" name="name" placeholder="名前" bind:value={newName} autocomplete="off" />
-			<Button type="submit" disabled={!newName.trim()}>作成</Button>
+			<label for="name" class="text-sm font-semibold">New profile</label>
+			<Input id="name" name="name" placeholder="Name" bind:value={newName} autocomplete="off" />
+			<Button type="submit" disabled={!newName.trim()}>Create</Button>
 		</form>
 	</Card.Content>
 </Card.Root>

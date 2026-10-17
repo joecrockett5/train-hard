@@ -45,23 +45,23 @@
 	{#if !brief}
 		<Dialog.Root>
 			<Dialog.Trigger class={`float-right top-4 right-4 ${buttonVariants({ variant: 'ghost' })}`}
-				>編集</Dialog.Trigger
+				>Edit</Dialog.Trigger
 			>
 			<Dialog.Content class="w-3/4 max-w-lg">
 				<Dialog.Header>
-					<Dialog.Title>編集 {exercise.name}</Dialog.Title>
-					<Dialog.Description>エクササイズを編集する</Dialog.Description>
+					<Dialog.Title>Edit {exercise.name}</Dialog.Title>
+					<Dialog.Description>Edit this exercise</Dialog.Description>
 				</Dialog.Header>
-				<label for="name">名前：</label>
-				<Input placeholder="名前" bind:value={updatedName} class="mb-2" />
-				<label for="description">説明：</label>
-				<Input placeholder="説明" bind:value={updatedDescription} />
+				<label for="name">Name</label>
+				<Input placeholder="Name" bind:value={updatedName} class="mb-2" />
+				<label for="description">Description</label>
+				<Input placeholder="Description" bind:value={updatedDescription} />
 				<br />
 				<Dialog.Footer class="flex flex-row gap-2">
 					<ConfirmDelete {deletionCallback} {exercise} />
 					<Dialog.Close
 						class={buttonVariants({ variant: 'default' }) + ' ml-auto'}
-						on:click={updateExercise}>保存</Dialog.Close
+						on:click={updateExercise}>Save</Dialog.Close
 					>
 				</Dialog.Footer>
 			</Dialog.Content>

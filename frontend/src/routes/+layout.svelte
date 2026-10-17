@@ -19,21 +19,21 @@
 		<Sheet.Content side="bottom">
 			<Sheet.Header>
 				<Sheet.Close>
-					<Sheet.Title><a href="/">ハード</a></Sheet.Title>
-					<Sheet.Description>ハードトレーニングアプリ</Sheet.Description>
+					<Sheet.Title><a href="/">hard</a></Sheet.Title>
+					<Sheet.Description>Training app</Sheet.Description>
 				</Sheet.Close>
 			</Sheet.Header>
 			<Sheet.Close class="w-full">
 				<div class="grid gap-2 py-4">
 					<div class="grid grid-cols-2 items-center gap-4">
-						<Button href="/workouts" variant="secondary" class="h-20">トレーニング</Button>
-						<Button href="/exercises" variant="secondary" class="h-20">エクササイズ</Button>
+						<Button href="/workouts" variant="secondary" class="h-20">Workouts</Button>
+						<Button href="/exercises" variant="secondary" class="h-20">Exercises</Button>
 					</div>
 				</div>
 			</Sheet.Close>
 			<form method="POST" action="/profiles?/switch">
 				<Button type="submit" variant="ghost" class="w-full">
-					{data.profile.name} ・ プロフィールを変える
+					{data.profile.name} · Switch profile
 				</Button>
 			</form>
 		</Sheet.Content>

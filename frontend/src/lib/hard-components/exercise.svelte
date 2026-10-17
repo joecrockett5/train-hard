@@ -244,24 +244,24 @@
 	<Card.Root class="mt-4">
 		<Dialog.Root>
 			<Dialog.Trigger class={`float-right top-4 right-4 ${buttonVariants({ variant: 'ghost' })}`}
-				>削除</Dialog.Trigger
+				>Delete</Dialog.Trigger
 			>
 			<Dialog.Content class="w-3/4">
 				<Dialog.Header>
-					<Dialog.Title>本当に削除しますか？</Dialog.Title>
-					<Dialog.Description>これは元に戻すことはできません。</Dialog.Description>
+					<Dialog.Title>Are you sure?</Dialog.Title>
+					<Dialog.Description>This cannot be undone.</Dialog.Description>
 				</Dialog.Header>
 				<Dialog.Footer>
-					<Dialog.Close class={buttonVariants({ variant: 'ghost' })}>キャンセル</Dialog.Close>
+					<Dialog.Close class={buttonVariants({ variant: 'ghost' })}>Cancel</Dialog.Close>
 					<Dialog.Close
 						on:click={() => deletionCallback(exercise)}
-						class={buttonVariants({ variant: 'destructive' })}>削除</Dialog.Close
+						class={buttonVariants({ variant: 'destructive' })}>Delete</Dialog.Close
 					>
 				</Dialog.Footer>
 			</Dialog.Content>
 		</Dialog.Root>
 		<Button on:click={toggleMinimized} variant="ghost" class="float-right top-4 right-4">
-			隠す
+			Hide
 		</Button>
 		<Card.Header class="w-1/2">
 			<Card.Title>
@@ -274,7 +274,7 @@
 		<Card.Content>
 			<div>
 				{#if oldInstances}
-					<p><strong>最近</strong></p>
+					<p><strong>Recent</strong></p>
 					<div class="flex flex-row">
 						{#each sortedOldInstances as sortedInstance, workoutIndex}
 							<Popover.Root portal={null}>
@@ -289,7 +289,7 @@
 								</Popover.Trigger>
 								<Popover.Content class="w-80">
 									{#if sortedInstance.warmup.length > 0}
-										<h4 class="text-l font-bold">準備に始めるセット</h4>
+										<h4 class="text-l font-bold">Warmup Sets</h4>
 										{#each sortedInstance.warmup as set}
 											<SetComponent {set} deletionCallback={deleteSet} brief />
 										{/each}
@@ -319,14 +319,14 @@
 				{/if}
 			</div>
 			<div class="mt-4">
-				<h3 class="text-xl font-bold">準備に始めるセット</h3>
+				<h3 class="text-xl font-bold">Warmup Sets</h3>
 				{#each warmupSets as set}
 					<SetComponent {set} deletionCallback={deleteSet} />
 				{/each}
 				{#if $creatingWarmupSet}
 					<Skeleton class="h-14 w-full mt-2" />
 				{/if}
-				<NewItem item="準備に始めるセット">
+				<NewItem item="Warmup Set">
 					<InlineSetEdit
 						bind:reps={warmupSetReps}
 						bind:weight={warmupSetWeight}
@@ -334,13 +334,13 @@
 					/>
 					<Dialog.Footer>
 						<Dialog.Close class={buttonVariants({ variant: 'default' })} on:click={createWarmupSet}
-							>追加</Dialog.Close
+							>Add</Dialog.Close
 						>
 					</Dialog.Footer>
 				</NewItem>
 			</div>
 			<div class="mt-6">
-				<h3 class="text-xl font-bold">ワークセット</h3>
+				<h3 class="text-xl font-bold">Working Sets</h3>
 				{#each workingSets as set, setIndex}
 					<SetComponent
 						{set}
@@ -351,7 +351,7 @@
 				{#if $creatingWorkingSet}
 					<Skeleton class="h-14 w-full mt-2" />
 				{/if}
-				<NewItem item="ワークセット">
+				<NewItem item="Working Set">
 					<InlineSetEdit
 						bind:reps={workingSetReps}
 						bind:weight={workingSetWeight}
@@ -359,7 +359,7 @@
 					/>
 					<Dialog.Footer>
 						<Dialog.Close class={buttonVariants({ variant: 'default' })} on:click={createWorkingSet}
-							>追加</Dialog.Close
+							>Add</Dialog.Close
 						>
 					</Dialog.Footer>
 				</NewItem>

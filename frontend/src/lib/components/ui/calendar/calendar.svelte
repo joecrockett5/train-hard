@@ -17,24 +17,24 @@
 	let className: $$Props['class'] = undefined;
 	export { className as class };
 
-	let japaneseWeekdays = ['日', '月', '火', '水', '木', '金', '土'];
-	let japaneseMonths = [
-		'1月',
-		'2月',
-		'3月',
-		'4月',
-		'5月',
-		'6月',
-		'7月',
-		'8月',
-		'9月',
-		'10月',
-		'11月',
-		'12月'
+	let weekdayLabels = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+	let monthLabels = [
+		'January',
+		'February',
+		'March',
+		'April',
+		'May',
+		'June',
+		'July',
+		'August',
+		'September',
+		'October',
+		'November',
+		'December'
 	];
 	$: heading =
 		value != undefined
-			? `${value.toDate(getLocalTimeZone()).getFullYear()}年${japaneseMonths[value.toDate(getLocalTimeZone()).getMonth()]}`
+			? `${monthLabels[value.toDate(getLocalTimeZone()).getMonth()]} ${value.toDate(getLocalTimeZone()).getFullYear()}`
 			: '';
 </script>
 
@@ -57,7 +57,7 @@
 			<Calendar.Grid>
 				<Calendar.GridHead>
 					<Calendar.GridRow class="flex justify-center">
-						{#each japaneseWeekdays as weekday}
+						{#each weekdayLabels as weekday}
 							<Calendar.HeadCell class="mx-1">
 								{weekday}
 							</Calendar.HeadCell>
@@ -91,14 +91,14 @@
 			variant="outline"
 			on:click={() => (value = today(getLocalTimeZone()).subtract({ days: 1 }))}
 		>
-			昨日
+			Yesterday
 		</Button>
 		<Button
 			class="mt-2 flex"
 			variant="outline"
 			on:click={() => (value = today(getLocalTimeZone()))}
 		>
-			今日
+			Today
 		</Button>
 		<Button class="mt-2 flex" variant="outline" on:click={() => value && (value = value.add({ days: 1 }))}>
 			&gt;

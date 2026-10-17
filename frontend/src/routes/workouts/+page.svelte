@@ -23,7 +23,6 @@
 	}
 
 	const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-	const japaneseWeekdays = ['日曜', '月曜', '火曜', '水曜', '木曜', '金曜', '土曜'];
 	const months = [
 		'January',
 		'February',
@@ -54,8 +53,8 @@
 	};
 
 	$: asDate = $selectedDate.toDate(getLocalTimeZone());
-	$: shortDate = `${asDate.getFullYear()}年${asDate.getMonth() + 1}月${asDate.getDate()}日`;
-	$: longDate = `${asDate.getFullYear()}年の${asDate.getMonth() + 1}月${asDate.getDate()}日、${japaneseWeekdays[asDate.getDay()]}`;
+	$: shortDate = `${months[asDate.getMonth()]} ${asDate.getDate()}${nthNumber(asDate.getDate())}, ${asDate.getFullYear()}`;
+	$: longDate = `${weekdays[asDate.getDay()]}, ${months[asDate.getMonth()]} ${asDate.getDate()}${nthNumber(asDate.getDate())} ${asDate.getFullYear()}`;
 
 	async function loadDate(date: DateValue) {
 		// The subscription below runs during SSR as well as in the browser, and
@@ -130,7 +129,7 @@
 </script>
 
 <svelte:head>
-	<title>ハード：トレーニング</title>
+	<title>hard: Workouts</title>
 </svelte:head>
 
 <Calendar bind:value={$selectedDate} class="rounded-md border" />
@@ -138,21 +137,21 @@
 <Card.Root class="mt-4">
 	<Card.Header>
 		<Card.Title>{longDate}</Card.Title>
-		<Card.Description>{shortDate}のトレーニング全部</Card.Description>
+		<Card.Description>All workouts on {shortDate}</Card.Description>
 	</Card.Header>
 </Card.Root>
 
-<NewItem item="トレーニング">
-	<label for="date">日付：</label>
+<NewItem item="Workout">
+	<label for="date">Date</label>
 	<Input value={shortDate} disabled />
-	<label for="title">タイトル：</label>
-	<Input placeholder="タイトル" bind:value={newWorkoutTitle} />
-	<label for="Notes">メモ：</label>
-	<Input placeholder="メモ" bind:value={newWorkoutNotes} />
+	<label for="title">Title</label>
+	<Input placeholder="Title" bind:value={newWorkoutTitle} />
+	<label for="Notes">Notes</label>
+	<Input placeholder="Notes" bind:value={newWorkoutNotes} />
 	<br />
 	<Dialog.Footer>
 		<Dialog.Close class={buttonVariants({ variant: 'default' })} on:click={addWorkout}
-			>追加</Dialog.Close
+			>Add</Dialog.Close
 		>
 	</Dialog.Footer>
 </NewItem>

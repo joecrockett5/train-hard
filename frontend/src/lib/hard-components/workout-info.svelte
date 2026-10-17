@@ -43,32 +43,36 @@
 	}
 
 	let asDate = new Date(workout.workoutDate);
-	$: japaneseDate = `${asDate.getFullYear()}年${asDate.getMonth() + 1}月${asDate.getDate()}日`;
+	$: formattedDate = asDate.toLocaleDateString('en-GB', {
+		day: 'numeric',
+		month: 'long',
+		year: 'numeric'
+	});
 </script>
 
 <Card.Root class="mt-4">
 	{#if !brief}
 		<Dialog.Root>
 			<Dialog.Trigger class={`float-right top-4 right-4 ${buttonVariants({ variant: 'ghost' })}`}
-				>編集</Dialog.Trigger
+				>Edit</Dialog.Trigger
 			>
 			<Dialog.Content class="w-3/4 max-w-lg">
 				<Dialog.Header>
-					<Dialog.Title>編集 {workout.title}</Dialog.Title>
-					<Dialog.Description>編集トレーニング</Dialog.Description>
+					<Dialog.Title>Edit {workout.title}</Dialog.Title>
+					<Dialog.Description>Edit this workout</Dialog.Description>
 				</Dialog.Header>
-				<label for="date">日付</label>
-				<Input value={japaneseDate} disabled />
-				<label for="title">タイトル</label>
-				<Input placeholder="タイトル" bind:value={updatedTitle} />
-				<label for="Notes">メモ</label>
-				<Input placeholder="メモ" bind:value={updatedNotes} />
+				<label for="date">Date</label>
+				<Input value={formattedDate} disabled />
+				<label for="title">Title</label>
+				<Input placeholder="Title" bind:value={updatedTitle} />
+				<label for="Notes">Notes</label>
+				<Input placeholder="Notes" bind:value={updatedNotes} />
 				<br />
 				<Dialog.Footer class="flex flex-row gap-2">
 					<ConfirmDelete {deletionCallback} {workout} />
 					<Dialog.Close
 						class={buttonVariants({ variant: 'default' }) + ' ml-auto'}
-						on:click={updateWorkout}>保存</Dialog.Close
+						on:click={updateWorkout}>Save</Dialog.Close
 					>
 				</Dialog.Footer>
 			</Dialog.Content>
@@ -83,7 +87,7 @@
 		<Card.Title>
 			<a {href}>{workout.title}</a>
 		</Card.Title>
-		<Card.Description>{japaneseDate}のトレーニング</Card.Description>
+		<Card.Description>Workout on {formattedDate}</Card.Description>
 	</Card.Header>
 	<Card.Content>
 		<div class="grid grid-cols-2 gap-4">
@@ -108,7 +112,7 @@
 
 					{#if workout.notes}
 						<div class="flex-1">
-							<span class="text-sm font-semibold">メモ</span>
+							<span class="text-sm font-semibold">Notes</span>
 							<p>{workout.notes}</p>
 						</div>
 					{/if}

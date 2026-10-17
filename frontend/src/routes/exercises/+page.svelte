@@ -77,25 +77,25 @@
 </script>
 
 <svelte:head>
-	<title>ハード：エクササイズ</title>
+	<title>hard: Exercises</title>
 </svelte:head>
 
 <Card.Root class="mt-4">
 	<Card.Header>
-		<Card.Title>エクササイズ</Card.Title>
-		<Card.Description>全てのエクササイズ</Card.Description>
+		<Card.Title>Exercises</Card.Title>
+		<Card.Description>All exercises</Card.Description>
 	</Card.Header>
 </Card.Root>
 
-<NewItem item="エクササイズ">
-	<label for="name">名前：</label>
-	<Input placeholder="名前" bind:value={newExerciseName} />
-	<label for="description">説明：</label>
-	<Input placeholder="説明" bind:value={newExerciseDescription} />
+<NewItem item="Exercise">
+	<label for="name">Name</label>
+	<Input placeholder="Name" bind:value={newExerciseName} />
+	<label for="description">Description</label>
+	<Input placeholder="Description" bind:value={newExerciseDescription} />
 	<br />
 	<Dialog.Footer>
 		<Dialog.Close class={buttonVariants({ variant: 'default' })} on:click={addExercise}
-			>追加</Dialog.Close
+			>Add</Dialog.Close
 		>
 	</Dialog.Footer>
 </NewItem>

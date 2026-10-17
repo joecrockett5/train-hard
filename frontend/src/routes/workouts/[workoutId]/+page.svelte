@@ -102,23 +102,27 @@
 	}
 
 	const asDate = new Date(workoutInfo.workoutDate);
-	const japaneseDate = `${asDate.getFullYear()}年${asDate.getMonth() + 1}月${asDate.getDate()}日`;
+	const formattedDate = asDate.toLocaleDateString('en-GB', {
+		day: 'numeric',
+		month: 'long',
+		year: 'numeric'
+	});
 </script>
 
 <svelte:head>
-	<title>ハード：{workoutInfo.title} - {japaneseDate}</title>
+	<title>hard: {workoutInfo.title} - {formattedDate}</title>
 </svelte:head>
 
 <WorkoutInfoComponent workout={workoutInfo} deletionCallback={deleteWorkout} />
 
 <NewItem
-	item="エクササイズ"
-	description={`「${workoutInfo.title}」にエクササイズを追加する`}
+	item="Exercise"
+	description={`Add an exercise to “${workoutInfo.title}”`}
 	className="h-4/5"
 >
 	<div>
-		<label for="Search" class="text-left"><b>検索：</b></label>
-		<Input placeholder="名前または説明" bind:value={search} />
+		<label for="Search" class="text-left"><b>Search</b></label>
+		<Input placeholder="Name or description" bind:value={search} />
 	</div>
 	<Pagination.Root
 		class="mt-4"

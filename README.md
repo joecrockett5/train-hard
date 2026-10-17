@@ -11,6 +11,18 @@ seed-data/      Drop JSON dumps here (gitignored)
 infra-legacy/   The old AWS deployment config, kept for reference
 ```
 
+## Branches
+
+| Branch | UI language |
+| --- | --- |
+| `main` | English |
+| `japanese` | Japanese (日本語) |
+
+They are identical apart from the interface strings and date formatting.
+`japanese` is the original UI the app was written with, preserved so it can be
+picked up again; `main` is the English translation of it. Any change that is
+not a user-facing string should land on both.
+
 ## Prerequisites
 
 - Docker Desktop (or any Docker Engine with Compose v2) — nothing else. No
