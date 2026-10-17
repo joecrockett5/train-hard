@@ -136,6 +136,23 @@ Add `--dry-run` to check parsing without writing. See
 
 Get a profile's id from `http://localhost:8000/api/profiles`.
 
+## Installing it on a phone
+
+The app ships a web manifest and a service worker, so a phone can install it
+to the home screen and it opens without browser chrome. Reach it over your
+network at `http://<this-machine>:3000` -- `FRONTEND_BIND` is `0.0.0.0` for
+exactly this.
+
+The service worker caches the app's own assets, so the interface loads
+instantly and survives a bad connection. It deliberately does **not** cache
+anything under `/api`: showing a stale set list would be worse than showing
+an error. Logging a set still needs the backend reachable; true offline
+logging would need a sync queue, which this does not attempt.
+
+Browsers only register service workers over HTTPS or on `localhost`, so
+installing from another device over plain HTTP gets the manifest but not the
+offline caching. Put it behind a TLS-terminating proxy if you want both.
+
 ## How the pieces fit together
 
 ```
