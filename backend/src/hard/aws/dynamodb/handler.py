@@ -10,11 +10,41 @@ from hard.aws.dynamodb.consts import DB_PARTITION, DB_SORT_KEY, PARTITION_TEMPLA
 from hard.aws.dynamodb.object_type import ObjectType
 from hard.aws.models.user import User
 
+_DYNAMODB_RESOURCE = None
+
+
+def _get_dynamodb_resource():
+    """
+    Returns a cached boto3 DynamoDB resource.
+
+    If `DYNAMODB_ENDPOINT_URL` is set the resource is pointed at it (DynamoDB
+    Local); otherwise boto3 resolves a real AWS endpoint from the usual region
+    and credential chain. Cached because a resource is relatively expensive to
+    build and `get_db_instance()` is called per request.
+    """
+    global _DYNAMODB_RESOURCE
+
+    if _DYNAMODB_RESOURCE is None:
+        kwargs = {}
+        endpoint_url = os.getenv("DYNAMODB_ENDPOINT_URL")
+        if endpoint_url:
+            kwargs["endpoint_url"] = endpoint_url
+        _DYNAMODB_RESOURCE = boto3.resource("dynamodb", **kwargs)
+
+    return _DYNAMODB_RESOURCE
+
 
 class DynamoDB:
     def __init__(self, table_name: str) -> None:
-        self._client = boto3.resource("dynamodb")
+        self._client = _get_dynamodb_resource()
         self._table = self._client.Table(table_name)
+
+    def ping(self) -> str:
+        """
+        Round-trips a `DescribeTable` so callers can tell whether the table is
+        actually reachable. Returns the table status.
+        """
+        return self._table.table_status
 
     def query(
         self,
@@ -95,3 +125,12 @@ def get_db_instance() -> DynamoDB:
     if db_name:
         return DynamoDB(table_name=db_name)
     raise ValueError("Missing Environment Variable: `DYNAMO_TABLE_NAME`")
+
+
+def reset_db_instance() -> None:
+    """
+    Drops the cached resource. Needed by tests, which create the resource
+    inside a `moto` mock and must not leak it across mocks.
+    """
+    global _DYNAMODB_RESOURCE
+    _DYNAMODB_RESOURCE = None

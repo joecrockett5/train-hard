@@ -1,5 +1,5 @@
-pytest
+pytest==8.3.3
 pytest-dependency==0.6.0
 pytest-cov==5.0.0
 black==24.4.2
-moto
+moto[dynamodb]==5.0.20
