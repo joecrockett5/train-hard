@@ -2,8 +2,11 @@
 // for information about these interfaces
 declare global {
 	namespace App {
+		interface Locals {
+			/** Active profile id, read from the profileId cookie in hooks.server.ts. */
+			profileId?: string;
+		}
 		// interface Error {}
-		// interface Locals {}
 		// interface PageData {}
 		// interface PageState {}
 		// interface Platform {}

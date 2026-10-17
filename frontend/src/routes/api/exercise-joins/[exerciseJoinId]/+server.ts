@@ -1,27 +1,27 @@
-import { HARD_API } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import { type RequestHandler } from '@sveltejs/kit';
 import { type Exercise } from '$lib/types';
 
-export const GET: RequestHandler = async ({ url, params }) => {
+export const GET: RequestHandler = async ({ url, params, locals }) => {
 	const { exerciseJoinId } = params;
 	console.log(`GET /api/exercise-joins/${exerciseJoinId}`);
-	const token = url.searchParams.get('token');
-	if (!token) {
-		console.log('Missing token');
+	const profileId = locals.profileId;
+	if (!profileId) {
+		console.log('No profile selected');
 		return new Response('Unauthorized', { status: 401 });
 	}
-	const response = await fetch(`${HARD_API}/exercise-joins/${exerciseJoinId}`, {
-		headers: { Authorization: `Bearer ${token}` }
+	const response = await fetch(`${env.HARD_API}/exercise-joins/${exerciseJoinId}`, {
+		headers: { 'X-Profile-Id': profileId }
 	});
 	const exerciseJoin = await response.json();
 
-	const exerciseResponse = await fetch(`${HARD_API}/exercises/${exerciseJoin.exercise_id}`, {
-		headers: { Authorization: `Bearer ${token}` }
+	const exerciseResponse = await fetch(`${env.HARD_API}/exercises/${exerciseJoin.exercise_id}`, {
+		headers: { 'X-Profile-Id': profileId }
 	});
 	const exerciseData = await exerciseResponse.json();
 
-	const setsResponse = await fetch(`${HARD_API}/sets?exercise=${exerciseJoin.exercise_id}`, {
-		headers: { Authorization: `Bearer ${token}` }
+	const setsResponse = await fetch(`${env.HARD_API}/sets?exercise=${exerciseJoin.exercise_id}`, {
+		headers: { 'X-Profile-Id': profileId }
 	});
 	const setsData = await setsResponse.json();
 
@@ -56,12 +56,12 @@ export const GET: RequestHandler = async ({ url, params }) => {
 	});
 };
 
-export const PUT: RequestHandler = async ({ url, params, request }) => {
+export const PUT: RequestHandler = async ({ url, params, request, locals }) => {
 	const { exercisejoinId } = params;
 	console.log(`PUT /api/exercise-joins/${exercisejoinId}`);
-	const token = url.searchParams.get('token');
-	if (!token) {
-		console.log('Missing token');
+	const profileId = locals.profileId;
+	if (!profileId) {
+		console.log('No profile selected');
 		return new Response('Unauthorized', { status: 401 });
 	}
 	const json = await request.json();
@@ -69,25 +69,25 @@ export const PUT: RequestHandler = async ({ url, params, request }) => {
 		workout_id: json.workoutId,
 		exercise_id: json.exerciseId
 	};
-	const response = await fetch(`${HARD_API}/exercise-joins/${exercisejoinId}`, {
+	const response = await fetch(`${env.HARD_API}/exercise-joins/${exercisejoinId}`, {
 		method: 'PUT',
-		headers: { Authorization: `Bearer ${token}` },
+		headers: { 'X-Profile-Id': profileId },
 		body: JSON.stringify(formattedBody)
 	});
 	return response;
 };
 
-export const DELETE: RequestHandler = async ({ url, params }) => {
+export const DELETE: RequestHandler = async ({ url, params, locals }) => {
 	const { exercisejoinId } = params;
 	console.log(`DELETE /api/exercise-joins/${exercisejoinId}`);
-	const token = url.searchParams.get('token');
-	if (!token) {
-		console.log('Missing token');
+	const profileId = locals.profileId;
+	if (!profileId) {
+		console.log('No profile selected');
 		return new Response('Unauthorized', { status: 401 });
 	}
-	const response = await fetch(`${HARD_API}/exercise-joins/${exercisejoinId}`, {
+	const response = await fetch(`${env.HARD_API}/exercise-joins/${exercisejoinId}`, {
 		method: 'DELETE',
-		headers: { Authorization: `Bearer ${token}` }
+		headers: { 'X-Profile-Id': profileId }
 	});
 	return response;
 };

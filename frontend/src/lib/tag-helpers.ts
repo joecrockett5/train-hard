@@ -1,14 +1,14 @@
-import { HARD_API } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import { type Tag } from '$lib/types';
 
-export const getTags = async (token: string, objectId: string) => {
+export const getTags = async (profileId: string, objectId: string) => {
 	console.log(`Getting tags for ${objectId}`);
-	if (!token) {
-		console.log('Missing token');
+	if (!profileId) {
+		console.log('No profile selected');
 		return;
 	}
-	const response = await fetch(`${HARD_API}/tags?target=${objectId}`, {
-		headers: { Authorization: `Bearer ${token}` }
+	const response = await fetch(`${env.HARD_API}/tags?target=${objectId}`, {
+		headers: { 'X-Profile-Id': profileId }
 	});
 	const tags = await response.json();
 	const outputTags: Tag[] = [];
@@ -21,18 +21,18 @@ export const getTags = async (token: string, objectId: string) => {
 	return outputTags;
 };
 
-export const postTags = async (token: string, targetId: string, tags: Tag[]) => {
+export const postTags = async (profileId: string, targetId: string, tags: Tag[]) => {
 	console.log(`Posting tags for ${targetId}`);
-	if (!token) {
-		console.log('Missing token');
+	if (!profileId) {
+		console.log('No profile selected');
 		return;
 	}
 	const failedTags: Tag[] = [];
 	for (const tag of tags) {
 		console.log(`Tagging ${targetId} with ${tag.name}`);
-		const res = await fetch(`${HARD_API}/tag-joins`, {
+		const res = await fetch(`${env.HARD_API}/tag-joins`, {
 			method: 'POST',
-			headers: { Authorization: `Bearer ${token}` },
+			headers: { 'X-Profile-Id': profileId },
 			body: JSON.stringify({
 				timestamp: new Date().toISOString(),
 				target_id: targetId,
@@ -49,18 +49,18 @@ export const postTags = async (token: string, targetId: string, tags: Tag[]) => 
 	}
 };
 
-export const putTags = async (token: string, tags: Tag[]) => {
+export const putTags = async (profileId: string, tags: Tag[]) => {
 	console.log(`Updating tags`);
-	if (!token) {
-		console.log('Missing token');
+	if (!profileId) {
+		console.log('No profile selected');
 		return;
 	}
 	const failedTags: Tag[] = [];
 	for (const tag of tags) {
 		console.log(`Updating ${tag.name} instance (${tag.objectId})`);
-		const res = await fetch(`${HARD_API}/tag-joins/${tag.objectId}`, {
+		const res = await fetch(`${env.HARD_API}/tag-joins/${tag.objectId}`, {
 			method: 'PUT',
-			headers: { Authorization: `Bearer ${token}` },
+			headers: { 'X-Profile-Id': profileId },
 			body: JSON.stringify(tag)
 		});
 		if (!res.ok) {
@@ -75,18 +75,18 @@ export const putTags = async (token: string, tags: Tag[]) => {
 	}
 };
 
-export const deleteTags = async (token: string, tags: Tag[]) => {
+export const deleteTags = async (profileId: string, tags: Tag[]) => {
 	console.log(`Deleting tags`);
-	if (!token) {
-		console.log('Missing token');
+	if (!profileId) {
+		console.log('No profile selected');
 		return;
 	}
 	const failedTags: Tag[] = [];
 	for (const tag of tags) {
 		console.log(`Deleting ${tag.name} instance (${tag.objectId})`);
-		const res = await fetch(`${HARD_API}/tag-joins/${tag.objectId}`, {
+		const res = await fetch(`${env.HARD_API}/tag-joins/${tag.objectId}`, {
 			method: 'DELETE',
-			headers: { Authorization: `Bearer ${token}` }
+			headers: { 'X-Profile-Id': profileId }
 		});
 		if (!res.ok) {
 			failedTags.push(tag);

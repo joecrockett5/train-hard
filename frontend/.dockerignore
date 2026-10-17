@@ -1,0 +1,27 @@
+# Version control
+.git
+.gitignore
+
+# Dependencies and build output -- reinstalled/rebuilt in the image. Copying
+# the host's node_modules would also drag in platform-specific binaries.
+node_modules/
+build/
+.svelte-kit/
+.output/
+.vercel/
+.amplify-hosting/
+
+# Secrets and local config
+.env
+.env.*
+!.env.example
+
+# Vite scratch files
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import * as Card from '$lib/components/ui/card';
 	import { buttonVariants } from '$lib/components/ui/button';
-	import { fetchAuthSession } from '@aws-amplify/auth';
 	import type { Exercise } from '$lib/types';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import ConfirmDelete from './confirm-delete-exercise-info.svelte';
@@ -15,9 +14,8 @@
 	let updatedDescription = exercise.description;
 
 	async function updateExercise() {
-		const session = await fetchAuthSession();
 		const response = await fetch(
-			`/api/exercises/${exercise.objectId}?token=${session.tokens?.idToken?.toString()}`,
+			`/api/exercises/${exercise.objectId}`,
 			{
 				method: 'PUT',
 				headers: {

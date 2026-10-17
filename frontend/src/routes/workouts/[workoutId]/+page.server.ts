@@ -1,11 +1,9 @@
 import type { Exercise, WorkoutInfo, Set } from '$lib/types';
 import type { PageLoad } from './$types';
 
-export const load = (async ({ fetch, cookies, params }) => {
-	const idToken = cookies.get('idToken');
+export const load = (async ({ fetch, params }) => {
 	const workoutId = params.workoutId;
-	console.log('idToken: ', idToken);
-	const response = await fetch(`/api/workouts/${workoutId}?token=${idToken}`);
+	const response = await fetch(`/api/workouts/${workoutId}`);
 
 	if (!response.ok) {
 		throw new Error('Failed to fetch exercises');
@@ -14,18 +12,18 @@ export const load = (async ({ fetch, cookies, params }) => {
 	const workoutInfo: WorkoutInfo = await response.json();
 
 	const exercisesResponse = await fetch(
-		`/api/exercises?workout=${workoutInfo.objectId}&token=${idToken}`
+		`/api/exercises?workout=${workoutInfo.objectId}`
 	);
 	const exercises: Exercise[] = await exercisesResponse.json();
 
-	const possibilitiesResponse = await fetch(`/api/exercises?token=${idToken}`);
+	const possibilitiesResponse = await fetch(`/api/exercises`);
 	const allExercises: Exercise[] = await possibilitiesResponse.json();
 
 	console.log(`workout: ${workoutInfo.title}, found ${exercises.length} exercises`);
 
 	for (const exercise of exercises) {
 		const setsResponse = await fetch(
-			`/api/sets?workout=${workoutInfo.objectId}&exercise=${exercise.objectId}&token=${idToken}`
+			`/api/sets?workout=${workoutInfo.objectId}&exercise=${exercise.objectId}`
 		);
 		const sets: Set[] = await setsResponse.json();
 		console.log(

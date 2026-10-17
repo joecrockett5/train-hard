@@ -1,8 +1,8 @@
-import { HARD_API } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import { type RequestHandler } from '@sveltejs/kit';
 import { type Set } from '$lib/types';
 
-export const GET: RequestHandler = async ({ url }) => {
+export const GET: RequestHandler = async ({ url, locals }) => {
 	// Need to update backend to allow for filtering by set_date
 	// will then add tag support
 	const workoutId = url.searchParams.get('workout');
@@ -12,17 +12,17 @@ export const GET: RequestHandler = async ({ url }) => {
 			(workoutId ? '?workout=' + workoutId : '') +
 			(exerciseId ? '&exercise=' + exerciseId : '')
 	);
-	const token = url.searchParams.get('token');
-	if (!token) {
-		console.log('Missing token');
+	const profileId = locals.profileId;
+	if (!profileId) {
+		console.log('No profile selected');
 		return new Response('Unauthorized', { status: 401 });
 	}
 	const response = await fetch(
-		`${HARD_API}/sets` +
+		`${env.HARD_API}/sets` +
 			(workoutId ? '?workout=' + workoutId : '') +
 			(exerciseId ? '&exercise=' + exerciseId : ''),
 		{
-			headers: { Authorization: `Bearer ${token}` }
+			headers: { 'X-Profile-Id': profileId }
 		}
 	);
 	const rawSets = await response.json();
@@ -46,11 +46,11 @@ export const GET: RequestHandler = async ({ url }) => {
 	});
 };
 
-export const POST: RequestHandler = async ({ url, request }) => {
+export const POST: RequestHandler = async ({ url, request, locals }) => {
 	console.log('POST /api/sets');
-	const token = url.searchParams.get('token');
-	if (!token) {
-		console.log('Missing token');
+	const profileId = locals.profileId;
+	if (!profileId) {
+		console.log('No profile selected');
 		return new Response('Unauthorized', { status: 401 });
 	}
 	const json = await request.json();
@@ -62,9 +62,9 @@ export const POST: RequestHandler = async ({ url, request }) => {
 		notes: json.notes,
 		exercise_join_id: json.exerciseJoinId
 	};
-	const response = await fetch(`${HARD_API}/sets`, {
+	const response = await fetch(`${env.HARD_API}/sets`, {
 		method: 'POST',
-		headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+		headers: { 'X-Profile-Id': profileId, 'Content-Type': 'application/json' },
 		body: JSON.stringify(formattedBody)
 	});
 	const responseJson = await response.json();

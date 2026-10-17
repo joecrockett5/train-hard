@@ -5,7 +5,6 @@
 	import Input from '$lib/components/ui/input/input.svelte';
 	import { buttonVariants } from '$lib/components/ui/button';
 	import type { Set } from '$lib/types';
-	import { fetchAuthSession } from '@aws-amplify/auth';
 	import ConfirmDelete from '$lib/hard-components/confirm-delete-set.svelte';
 	import Tick from '$lib/svg/tick.svelte';
 	import Cross from '$lib/svg/cross.svelte';
@@ -21,9 +20,8 @@
 	let updatedNotes = set.notes;
 
 	async function updateSet() {
-		const session = await fetchAuthSession();
 		const response = await fetch(
-			`/api/sets/${set.objectId}?token=${session.tokens?.idToken?.toString()}`,
+			`/api/sets/${set.objectId}`,
 			{
 				method: 'PUT',
 				headers: {

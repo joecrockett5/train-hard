@@ -40,7 +40,6 @@
 		"@internationalized/date": "^3.5.5",
 		"@sveltejs/adapter-node": "^5.2.0",
 		"@vercel/nft": "^0.27.3",
-		"aws-amplify": "^6.4.1",
 		"clsx": "^2.1.1",
 		"dotenv": "^16.4.5",
 		"svelte-gestures": "^5.0.7",

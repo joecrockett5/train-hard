@@ -1,17 +1,17 @@
-import { HARD_API } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import { type RequestHandler } from '@sveltejs/kit';
 import { type Template } from '$lib/types';
 
-export const GET: RequestHandler = async ({ url, params }) => {
+export const GET: RequestHandler = async ({ url, params, locals }) => {
 	const { templateId } = params;
 	console.log(`GET /api/templates/${templateId}`);
-	const token = url.searchParams.get('token');
-	if (!token) {
-		console.log('Missing token');
+	const profileId = locals.profileId;
+	if (!profileId) {
+		console.log('No profile selected');
 		return new Response('Unauthorized', { status: 401 });
 	}
-	const response = await fetch(`${HARD_API}/exercises/${templateId}`, {
-		headers: { Authorization: `Bearer ${token}` }
+	const response = await fetch(`${env.HARD_API}/exercises/${templateId}`, {
+		headers: { 'X-Profile-Id': profileId }
 	});
 	const json = await response.json();
 	const formattedBody: Template = {
@@ -27,12 +27,12 @@ export const GET: RequestHandler = async ({ url, params }) => {
 	});
 };
 
-export const PUT: RequestHandler = async ({ url, params, request }) => {
+export const PUT: RequestHandler = async ({ url, params, request, locals }) => {
 	const { templateId } = params;
 	console.log(`PUT /api/templates/${templateId}`);
-	const token = url.searchParams.get('token');
-	if (!token) {
-		console.log('Missing token');
+	const profileId = locals.profileId;
+	if (!profileId) {
+		console.log('No profile selected');
 		return new Response('Unauthorized', { status: 401 });
 	}
 	const json = await request.json();
@@ -42,25 +42,25 @@ export const PUT: RequestHandler = async ({ url, params, request }) => {
 		name: json.name,
 		description: json.description
 	};
-	const response = await fetch(`${HARD_API}/templates/${templateId}`, {
+	const response = await fetch(`${env.HARD_API}/templates/${templateId}`, {
 		method: 'PUT',
-		headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+		headers: { 'X-Profile-Id': profileId, 'Content-Type': 'application/json' },
 		body: JSON.stringify(formattedBody)
 	});
 	return response;
 };
 
-export const DELETE: RequestHandler = async ({ url, params }) => {
+export const DELETE: RequestHandler = async ({ url, params, locals }) => {
 	const { templateId } = params;
 	console.log(`DELETE /api/templates/${templateId}`);
-	const token = url.searchParams.get('token');
-	if (!token) {
-		console.log('Missing token');
+	const profileId = locals.profileId;
+	if (!profileId) {
+		console.log('No profile selected');
 		return new Response('Unauthorized', { status: 401 });
 	}
-	const response = await fetch(`${HARD_API}/templates/${templateId}`, {
+	const response = await fetch(`${env.HARD_API}/templates/${templateId}`, {
 		method: 'DELETE',
-		headers: { Authorization: `Bearer ${token}` }
+		headers: { 'X-Profile-Id': profileId }
 	});
 	return response;
 };

@@ -4,7 +4,6 @@
 	import { buttonVariants, Button } from '$lib/components/ui/button';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import Input from '$lib/components/ui/input/input.svelte';
-	import { fetchAuthSession } from '@aws-amplify/auth';
 	import ConfirmDelete from '$lib/hard-components/confirm-delete-workout-info.svelte';
 
 	export let workout: WorkoutInfo;
@@ -16,9 +15,8 @@
 	let updatedNotes = workout.notes;
 
 	async function updateWorkout() {
-		const session = await fetchAuthSession();
 		const response = await fetch(
-			`/api/workouts/${workout.objectId}?token=${session.tokens?.idToken?.toString()}`,
+			`/api/workouts/${workout.objectId}`,
 			{
 				method: 'PUT',
 				headers: {

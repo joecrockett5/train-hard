@@ -8,7 +8,6 @@
 	import type { Exercise, Set } from '$lib/types';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button, buttonVariants } from '$lib/components/ui/button';
-	import { fetchAuthSession } from 'aws-amplify/auth';
 	import Skeleton from '$lib/components/ui/skeleton/skeleton.svelte';
 	import { writable } from 'svelte/store';
 	import ExerciseInfoComponent from '$lib/hard-components/exercise-info.svelte';
@@ -48,14 +47,13 @@
 
 	async function createWarmupSet() {
 		creatingWarmupSet.set(true);
-		const session = await fetchAuthSession();
 		const response = await fetch(
-			`/api/exercise-joins?token=${session.tokens?.idToken?.toString()}&workout=${workoutId}&exercise=${exercise.objectId}`
+			`/api/exercise-joins?workout=${workoutId}&exercise=${exercise.objectId}`
 		);
 		const joinJson = await response.json();
 		const join = joinJson[0];
 		const createSetResponse = await fetch(
-			`/api/sets?token=${session.tokens?.idToken?.toString()}`,
+			`/api/sets`,
 			{
 				method: 'POST',
 				headers: {
@@ -87,14 +85,13 @@
 
 	async function createWorkingSet() {
 		creatingWorkingSet.set(true);
-		const session = await fetchAuthSession();
 		const response = await fetch(
-			`/api/exercise-joins?token=${session.tokens?.idToken?.toString()}&workout=${workoutId}&exercise=${exercise.objectId}`
+			`/api/exercise-joins?workout=${workoutId}&exercise=${exercise.objectId}`
 		);
 		const joinJson = await response.json();
 		const join = joinJson[0];
 		const createSetResponse = await fetch(
-			`/api/sets?token=${session.tokens?.idToken?.toString()}`,
+			`/api/sets`,
 			{
 				method: 'POST',
 				headers: {
@@ -125,9 +122,8 @@
 	}
 
 	async function deleteSet(set: Set) {
-		const session = await fetchAuthSession();
 		const response = await fetch(
-			`/api/sets/${set.objectId}?token=${session.tokens?.idToken?.toString()}`,
+			`/api/sets/${set.objectId}`,
 			{
 				method: 'DELETE'
 			}
@@ -148,9 +144,8 @@
 	let oldInstances;
 
 	async function fetchOldSets() {
-		const session = await fetchAuthSession();
 		const response = await fetch(
-			`/api/sets/recent?token=${session.tokens?.idToken?.toString()}&exercise=${exercise.objectId}`
+			`/api/sets/recent?exercise=${exercise.objectId}`
 		);
 		if (!response.ok) {
 			console.error(`Failed to fetch old sets for ${exercise.name}, got ${response.status}`);

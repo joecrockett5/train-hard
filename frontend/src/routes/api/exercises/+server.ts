@@ -1,20 +1,20 @@
-import { HARD_API } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import { type RequestHandler } from '@sveltejs/kit';
 import { type Exercise } from '$lib/types';
 
-export const GET: RequestHandler = async ({ url }) => {
+export const GET: RequestHandler = async ({ url, locals }) => {
 	// Need to update backend to allow for filtering by exercise_date
 	// will then add tag support
 	console.log('GET /api/exercises');
-	const token = url.searchParams.get('token');
+	const profileId = locals.profileId;
 	const workout = url.searchParams.get('workout');
-	if (!token || token == undefined) {
-		console.log('Missing token');
+	if (!profileId) {
+		console.log('No profile selected');
 		return new Response('Unauthorized', { status: 401 });
 	}
-	const response = await fetch(`${HARD_API}/exercises` + (workout ? `?workout=${workout}` : ''), {
+	const response = await fetch(`${env.HARD_API}/exercises` + (workout ? `?workout=${workout}` : ''), {
 		method: 'GET',
-		headers: { Authorization: `Bearer ${token}` }
+		headers: { 'X-Profile-Id': profileId }
 	});
 	const rawexercises = await response.json();
 	const exercises: Exercise[] = [];
@@ -33,11 +33,11 @@ export const GET: RequestHandler = async ({ url }) => {
 	});
 };
 
-export const POST: RequestHandler = async ({ url, request }) => {
+export const POST: RequestHandler = async ({ url, request, locals }) => {
 	console.log('POST /api/exercises');
-	const token = url.searchParams.get('token');
-	if (!token) {
-		console.log('Missing token');
+	const profileId = locals.profileId;
+	if (!profileId) {
+		console.log('No profile selected');
 		return new Response('Unauthorized', { status: 401 });
 	}
 	const json = await request.json();
@@ -45,9 +45,9 @@ export const POST: RequestHandler = async ({ url, request }) => {
 		name: json.name,
 		description: json.description
 	};
-	const response = await fetch(`${HARD_API}/exercises`, {
+	const response = await fetch(`${env.HARD_API}/exercises`, {
 		method: 'POST',
-		headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+		headers: { 'X-Profile-Id': profileId, 'Content-Type': 'application/json' },
 		body: JSON.stringify(formattedBody)
 	});
 	return response;

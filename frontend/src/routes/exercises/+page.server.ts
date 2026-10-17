@@ -1,9 +1,7 @@
 import type { PageLoad } from './$types';
 
-export const load = (async ({ fetch, cookies }) => {
-	const idToken = cookies.get('idToken');
-	console.log('idToken: ', idToken);
-	const response = await fetch(`/api/exercises?token=${idToken}`);
+export const load = (async ({ fetch }) => {
+	const response = await fetch(`/api/exercises`);
 
 	if (!response.ok) {
 		throw new Error('Failed to fetch exercises');

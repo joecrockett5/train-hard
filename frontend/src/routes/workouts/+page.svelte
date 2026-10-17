@@ -11,7 +11,6 @@
 	import type { WorkoutInfo } from '$lib/types';
 	import WorkoutInfoComponent from '$lib/hard-components/workout-info.svelte';
 	import NewItem from '$lib/hard-components/new-item.svelte';
-	import { fetchAuthSession } from 'aws-amplify/auth';
 
 	let customDate = $page.url.searchParams.get('date');
 
@@ -58,9 +57,8 @@
 	$: longDate = `${asDate.getFullYear()}年の${asDate.getMonth() + 1}月${asDate.getDate()}日、${japaneseWeekdays[asDate.getDay()]}`;
 
 	async function loadDate(date) {
-		const session = await fetchAuthSession();
 		const response = await fetch(
-			`/api/workouts?token=${session.tokens?.idToken?.toString()}&date=${date.toString().split('T')[0]}`
+			`/api/workouts?date=${date.toString().split('T')[0]}`
 		);
 		const workoutsForDate = await response.json();
 		return workoutsForDate;
@@ -75,8 +73,7 @@
 	let newWorkoutNotes = '';
 
 	async function addWorkout() {
-		const session = await fetchAuthSession();
-		const response = await fetch(`/api/workouts?token=${session.tokens?.idToken?.toString()}`, {
+		const response = await fetch(`/api/workouts`, {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json'

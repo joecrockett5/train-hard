@@ -9,7 +9,6 @@
 	import ChevronRight from 'lucide-svelte/icons/chevron-right';
 	import Input from '$lib/components/ui/input/input.svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
-	import { fetchAuthSession } from '@aws-amplify/auth';
 	import { goto } from '$app/navigation';
 	import { getLocalTimeZone } from '@internationalized/date';
 
@@ -46,9 +45,8 @@
 
 	const addExercise = async (exercise: Exercise) => {
 		console.log(`adding exercise: ${exercise.name}`);
-		const session = await fetchAuthSession();
 		const response = await fetch(
-			`/api/exercise-joins?token=${session.tokens?.idToken?.toString()}`,
+			`/api/exercise-joins`,
 			{
 				method: 'POST',
 				headers: {
@@ -70,9 +68,8 @@
 	};
 
 	const removeExercise = async (exercise: Exercise) => {
-		const session = await fetchAuthSession();
 		const response = await fetch(
-			`/api/exercise-joins?token=${session.tokens?.idToken?.toString()}&workoutId=${workoutInfo.objectId}&exerciseId=${exercise.objectId}`,
+			`/api/exercise-joins?workoutId=${workoutInfo.objectId}&exerciseId=${exercise.objectId}`,
 			{
 				method: 'DELETE',
 				headers: {
@@ -90,9 +87,8 @@
 	};
 
 	async function deleteWorkout(workout: WorkoutInfo) {
-		const session = await fetchAuthSession();
 		const response = await fetch(
-			`/api/workouts/${workout.objectId}?token=${session.tokens?.idToken?.toString()}`,
+			`/api/workouts/${workout.objectId}`,
 			{
 				method: 'DELETE'
 			}

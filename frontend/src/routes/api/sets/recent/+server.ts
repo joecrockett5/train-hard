@@ -1,15 +1,15 @@
-import { HARD_API } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import { type RequestHandler } from '@sveltejs/kit';
 import { type Set } from '$lib/types';
 
-export const GET: RequestHandler = async ({ url }) => {
+export const GET: RequestHandler = async ({ url, locals }) => {
 	// Need to update backend to allow for filtering by set_date
 	// will then add tag support
 	const exerciseId = url.searchParams.get('exercise');
 	console.log('GET /api/sets/recent' + (exerciseId ? '?exercise=' + exerciseId : ''));
-	const token = url.searchParams.get('token');
-	if (!token) {
-		console.log('Missing token');
+	const profileId = locals.profileId;
+	if (!profileId) {
+		console.log('No profile selected');
 		return new Response('Unauthorized', { status: 401 });
 	}
 	if (!exerciseId) {
@@ -17,8 +17,8 @@ export const GET: RequestHandler = async ({ url }) => {
 		return new Response('Missing exerciseId', { status: 400 });
 	}
 	// get ex joins where exercise_id = exerciseId
-	const exJoinsResponse = await fetch(`${HARD_API}/exercise-joins?exercise=${exerciseId}`, {
-		headers: { Authorization: `Bearer ${token}` }
+	const exJoinsResponse = await fetch(`${env.HARD_API}/exercise-joins?exercise=${exerciseId}`, {
+		headers: { 'X-Profile-Id': profileId }
 	});
 	const exJoins = await exJoinsResponse.json();
 	if (exJoins.length < 2) {
@@ -30,8 +30,8 @@ export const GET: RequestHandler = async ({ url }) => {
 	const last3 = exJoins.splice(0, 3);
 
 	// get sets where exercise_join_id = ex joins
-	const setsResponse = await fetch(`${HARD_API}/sets?exercise=${exerciseId}`, {
-		headers: { Authorization: `Bearer ${token}` }
+	const setsResponse = await fetch(`${env.HARD_API}/sets?exercise=${exerciseId}`, {
+		headers: { 'X-Profile-Id': profileId }
 	});
 	const rawSets = await setsResponse.json();
 	const recentInstances = {};

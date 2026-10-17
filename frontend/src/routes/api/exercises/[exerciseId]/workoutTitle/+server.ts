@@ -1,20 +1,20 @@
-import { HARD_API } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import { type RequestHandler } from '@sveltejs/kit';
 
-export const GET: RequestHandler = async ({ url, params }) => {
+export const GET: RequestHandler = async ({ url, params, locals }) => {
 	const { exerciseId } = params;
 	console.log(`GET /api/exercises/${exerciseId}/workoutTitle`);
-	const token = url.searchParams.get('token');
-	if (!token) {
-		console.log('Missing token');
+	const profileId = locals.profileId;
+	if (!profileId) {
+		console.log('No profile selected');
 		return new Response('Unauthorized', { status: 401 });
 	}
-	const joinResponse = await fetch(`${HARD_API}/exercises/${exerciseId}`, {
-		headers: { Authorization: `Bearer ${token}` }
+	const joinResponse = await fetch(`${env.HARD_API}/exercises/${exerciseId}`, {
+		headers: { 'X-Profile-Id': profileId }
 	});
 	const joinJson = await joinResponse.json();
-	const workoutResponse = await fetch(`${HARD_API}/workouts/${joinJson.workout_id}`, {
-		headers: { Authorization: `Bearer ${token}` }
+	const workoutResponse = await fetch(`${env.HARD_API}/workouts/${joinJson.workout_id}`, {
+		headers: { 'X-Profile-Id': profileId }
 	});
 	const workoutJson = await workoutResponse.json();
 	const formattedBody = {

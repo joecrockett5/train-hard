@@ -5,7 +5,6 @@
 	import Input from '$lib/components/ui/input/input.svelte';
 	import { buttonVariants } from '$lib/components/ui/button';
 	import * as Dialog from '$lib/components/ui/dialog';
-	import { fetchAuthSession } from '@aws-amplify/auth';
 	import { type Exercise } from '$lib/types';
 	import * as Pagination from '$lib/components/ui/pagination';
 	import ChevronLeft from 'lucide-svelte/icons/chevron-left';
@@ -26,8 +25,7 @@
 	async function addExercise() {
 		if (newExerciseName) {
 			console.log(`adding exercise: ${newExerciseName}`);
-			const session = await fetchAuthSession();
-			const response = await fetch(`/api/exercises?token=${session.tokens?.idToken?.toString()}`, {
+			const response = await fetch(`/api/exercises`, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json'
@@ -62,9 +60,8 @@
 	}
 
 	async function deleteExercise(exercise: Exercise) {
-		const session = await fetchAuthSession();
 		const response = await fetch(
-			`/api/exercises/${exercise.objectId}?token=${session.tokens?.idToken?.toString()}`,
+			`/api/exercises/${exercise.objectId}`,
 			{
 				method: 'DELETE'
 			}

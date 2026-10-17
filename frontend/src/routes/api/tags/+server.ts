@@ -1,19 +1,19 @@
-import { HARD_API } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import { type RequestHandler } from '@sveltejs/kit';
 import { type Tag } from '$lib/types';
 import { getTags, postTags } from '$lib/tag-helpers';
 
-export const GET: RequestHandler = async ({ url }) => {
+export const GET: RequestHandler = async ({ url, locals }) => {
 	// Need to update backend to allow for filtering by tag_date
 	// will then add tag support
 	console.log('GET /api/tags');
-	const token = url.searchParams.get('token');
-	if (!token) {
-		console.log('Missing token');
+	const profileId = locals.profileId;
+	if (!profileId) {
+		console.log('No profile selected');
 		return new Response('Unauthorized', { status: 401 });
 	}
-	const response = await fetch(`${HARD_API}/tags`, {
-		headers: { Authorization: `Bearer ${token}` }
+	const response = await fetch(`${env.HARD_API}/tags`, {
+		headers: { 'X-Profile-Id': profileId }
 	});
 	const rawtags = await response.json();
 	const tags: Tag[] = [];
@@ -33,11 +33,11 @@ export const GET: RequestHandler = async ({ url }) => {
 	});
 };
 
-export const POST: RequestHandler = async ({ url, request }) => {
+export const POST: RequestHandler = async ({ url, request, locals }) => {
 	console.log('POST /api/tags');
-	const token = url.searchParams.get('token');
-	if (!token) {
-		console.log('Missing token');
+	const profileId = locals.profileId;
+	if (!profileId) {
+		console.log('No profile selected');
 		return new Response('Unauthorized', { status: 401 });
 	}
 	const json = await request.json();
@@ -45,9 +45,9 @@ export const POST: RequestHandler = async ({ url, request }) => {
 		name: json.name,
 		color_hex: json.colorHex
 	};
-	const response = await fetch(`${HARD_API}/tags`, {
+	const response = await fetch(`${env.HARD_API}/tags`, {
 		method: 'POST',
-		headers: { Authorization: `Bearer ${token}` },
+		headers: { 'X-Profile-Id': profileId },
 		body: JSON.stringify(formattedBody)
 	});
 	return response;
