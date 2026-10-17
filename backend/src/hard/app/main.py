@@ -1,4 +1,5 @@
 from fastapi import APIRouter, FastAPI, HTTPException, Response, status
+from fastapi.responses import JSONResponse
 from starlette.requests import Request
 
 from hard.app.routes import (
@@ -66,7 +67,13 @@ async def invalid_attr_exc_handler(_req: Request, exc: InvalidAttributeChangeErr
 
 @app.exception_handler(AuthorizationError)
 async def authorization_exc_handler(_req: Request, exc: AuthorizationError):
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc))
+    # Returns a response rather than raising HTTPException. Raising from inside
+    # an exception handler does not produce that status: Starlette lets it
+    # propagate to the server error middleware, which answers 500. The handlers
+    # below are the app's pre-existing pattern and are left as they are.
+    return JSONResponse(
+        status_code=status.HTTP_401_UNAUTHORIZED, content={"detail": str(exc)}
+    )
 
 
 @app.exception_handler(ItemAccessUnauthorizedError)

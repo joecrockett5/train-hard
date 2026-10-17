@@ -1,9 +1,11 @@
 import { redirect, type Handle } from '@sveltejs/kit';
-
-export const PROFILE_COOKIE = 'profileId';
+import { PROFILE_COOKIE } from '$lib/server/profile';
 
 /** Routes reachable without a profile selected. */
-const UNGATED = ['/profiles', '/health'];
+const UNGATED = ['/profiles'];
+
+/** Anything with a file extension is an asset request, not an app route. */
+const ASSET_PATH = /\.[a-z0-9]+$/i;
 
 export const handle: Handle = async ({ event, resolve }) => {
 	// Profiles are not password protected. The cookie only selects which data
@@ -12,9 +14,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.profileId = event.cookies.get(PROFILE_COOKIE);
 
 	const { pathname } = event.url;
-	const ungated = UNGATED.some(
-		(route) => pathname === route || pathname.startsWith(`${route}/`)
-	);
+	const ungated =
+		ASSET_PATH.test(pathname) ||
+		UNGATED.some((route) => pathname === route || pathname.startsWith(`${route}/`));
 
 	if (!event.locals.profileId && !ungated) {
 		// API routes answer 401 so fetches fail loudly instead of being handed
@@ -22,7 +24,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		if (pathname.startsWith('/api/')) {
 			return new Response('No profile selected', { status: 401 });
 		}
-		redirect(307, `/profiles?redirectTo=${encodeURIComponent(event.url.pathname)}`);
+		redirect(307, `/profiles?redirectTo=${encodeURIComponent(pathname)}`);
 	}
 
 	return resolve(event);

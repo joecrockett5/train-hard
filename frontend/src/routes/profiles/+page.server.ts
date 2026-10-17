@@ -1,6 +1,6 @@
 import { env } from '$env/dynamic/private';
 import { fail, redirect, type Actions } from '@sveltejs/kit';
-import { PROFILE_COOKIE } from '../../hooks.server';
+import { PROFILE_COOKIE, PROFILE_PROFILE_COOKIE_OPTIONS } from '$lib/server/profile';
 import type { PageServerLoad } from './$types';
 
 type BackendProfile = {
@@ -13,13 +13,6 @@ export type Profile = {
 	objectId: string;
 	name: string;
 };
-
-const COOKIE_OPTIONS = {
-	path: '/',
-	httpOnly: true,
-	sameSite: 'lax',
-	maxAge: 60 * 60 * 24 * 365
-} as const;
 
 /**
  * Profiles are the one resource read without a profile selected, so this talks
@@ -69,7 +62,7 @@ export const actions: Actions = {
 			return fail(400, { message: 'Pick a profile' });
 		}
 
-		cookies.set(PROFILE_COOKIE, profileId, COOKIE_OPTIONS);
+		cookies.set(PROFILE_COOKIE, profileId, PROFILE_COOKIE_OPTIONS);
 		redirect(303, redirectTo);
 	},
 
@@ -95,7 +88,7 @@ export const actions: Actions = {
 		}
 
 		const created: BackendProfile = await response.json();
-		cookies.set(PROFILE_COOKIE, created.object_id, COOKIE_OPTIONS);
+		cookies.set(PROFILE_COOKIE, created.object_id, PROFILE_COOKIE_OPTIONS);
 		redirect(303, redirectTo);
 	},
 
