@@ -1,0 +1,44 @@
+# Development override: hot reload for both services.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+#
+# The README wraps that in `npm`-free shorthand; see "Dev mode".
+
+services:
+  backend:
+    build:
+      context: ./backend
+      target: base
+    # --reload watches the bind-mounted source. Dropping to the host's uid
+    # would complicate the editable install, so this keeps the image's user.
+    command:
+      [
+        "uvicorn",
+        "hard.app.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+        "--reload",
+        "--reload-dir",
+        "/app/src"
+      ]
+    volumes:
+      - ./backend/src:/app/src:ro
+
+  frontend:
+    build:
+      context: ./frontend
+      target: development
+    environment:
+      HARD_API: ${HARD_API:-http://backend:8000/api}
+    ports:
+      - "${FRONTEND_DEV_HOST_PORT:-5173}:5173"
+    volumes:
+      # Source is bind-mounted for hot reload. node_modules and .svelte-kit
+      # are masked by anonymous volumes so the container keeps the ones it
+      # installed -- the host's are built for a different platform and Node
+      # version.
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.svelte-kit

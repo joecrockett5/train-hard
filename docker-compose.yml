@@ -1,0 +1,163 @@
+name: train-hard
+
+services:
+  # ---------------------------------------------------------------------------
+  # DynamoDB Local. -sharedDb keeps everything in one database file regardless
+  # of credentials or region; -dbPath puts that file on a named volume so data
+  # survives `docker compose down`.
+  #
+  # user: root works around a known issue with this image -- it runs as uid
+  # 1000 (dynamodblocal), but a fresh named volume is owned by root, so the
+  # default user cannot create its database file and the container dies with a
+  # permissions error. Running as root is the simplest fix for a local-only
+  # service; the alternative is an init container that chowns the volume.
+  # ---------------------------------------------------------------------------
+  dynamodb:
+    image: amazon/dynamodb-local:2.5.2
+    container_name: train-hard-dynamodb
+    user: root
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-dbPath", "/data"]
+    working_dir: /home/dynamodblocal
+    volumes:
+      - dynamodb-data:/data
+    ports:
+      - "${DYNAMODB_HOST_PORT:-8001}:8000"
+    healthcheck:
+      # DynamoDB Local answers an unauthenticated GET with HTTP 400, which is
+      # enough to prove the HTTP listener is up. The image ships a JRE but no
+      # curl, so this probe is written in Java-free shell.
+      test:
+        [
+          "CMD-SHELL",
+          "exec 3<>/dev/tcp/127.0.0.1/8000 && printf 'GET / HTTP/1.0\\r\\n\\r\\n' >&3 && head -c 12 <&3 | grep -q HTTP"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # One-shot table creation. Idempotent, so it is safe on every `up`. The
+  # backend waits for this to exit successfully, which is a stronger guarantee
+  # than waiting on DynamoDB's healthcheck alone: the table is guaranteed to
+  # exist, not just the port to be open.
+  # ---------------------------------------------------------------------------
+  dynamodb-init:
+    build:
+      context: ./backend
+      target: base
+    container_name: train-hard-dynamodb-init
+    command: ["python", "/scripts/init_tables.py"]
+    environment:
+      DYNAMODB_ENDPOINT_URL: http://dynamodb:8000
+      DYNAMO_TABLE_NAME: ${DYNAMO_TABLE_NAME:-hardResources}
+      DYNAMO_ITEM_INDEX_NAME: ${DYNAMO_ITEM_INDEX_NAME:-ItemSearch}
+      AWS_REGION: ${AWS_REGION:-eu-west-2}
+      AWS_DEFAULT_REGION: ${AWS_REGION:-eu-west-2}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-local}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-local}
+    volumes:
+      - ./scripts:/scripts:ro
+    depends_on:
+      dynamodb:
+        condition: service_healthy
+    restart: "no"
+
+  backend:
+    build:
+      context: ./backend
+      target: base
+    container_name: train-hard-backend
+    environment:
+      # Set, so boto3 talks to DynamoDB Local. Unset it and the same code
+      # resolves a real AWS endpoint instead.
+      DYNAMODB_ENDPOINT_URL: http://dynamodb:8000
+      DYNAMO_TABLE_NAME: ${DYNAMO_TABLE_NAME:-hardResources}
+      # Dummy, but required: boto3 refuses to sign a request without a region
+      # and credentials, even against a local endpoint that ignores them.
+      AWS_REGION: ${AWS_REGION:-eu-west-2}
+      AWS_DEFAULT_REGION: ${AWS_REGION:-eu-west-2}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-local}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-local}
+    ports:
+      - "${BACKEND_HOST_PORT:-8000}:8000"
+    depends_on:
+      dynamodb:
+        condition: service_healthy
+      dynamodb-init:
+        condition: service_completed_successfully
+    healthcheck:
+      # /health round-trips a DescribeTable, so a healthy backend means the
+      # table is genuinely reachable.
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).status == 200 else 1)\""
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      target: production
+    container_name: train-hard-frontend
+    environment:
+      # Server-side only, over the compose network. The browser never calls
+      # the backend directly: every request goes through this app's own /api
+      # routes, which is also why there is no CORS configuration anywhere.
+      HARD_API: ${HARD_API:-http://backend:8000/api}
+      PORT: 3000
+      HOST: 0.0.0.0
+    ports:
+      - "${FRONTEND_HOST_PORT:-3000}:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Opt-in services. These never start with a plain `docker compose up`.
+  # ---------------------------------------------------------------------------
+
+  # docker compose --profile test run --rm test
+  test:
+    build:
+      context: ./backend
+      target: test
+    container_name: train-hard-test
+    profiles: ["test"]
+    environment:
+      DYNAMO_TABLE_NAME: ${DYNAMO_TABLE_NAME:-hardResources}
+      AWS_REGION: ${AWS_REGION:-eu-west-2}
+      AWS_DEFAULT_REGION: ${AWS_REGION:-eu-west-2}
+    command: ["pytest", "-v"]
+
+  # docker compose --profile seed run --rm seed /data/dump.json
+  seed:
+    build:
+      context: ./backend
+      target: base
+    container_name: train-hard-seed
+    profiles: ["seed"]
+    entrypoint: ["python", "/scripts/seed.py"]
+    environment:
+      DYNAMODB_ENDPOINT_URL: http://dynamodb:8000
+      DYNAMO_TABLE_NAME: ${DYNAMO_TABLE_NAME:-hardResources}
+      AWS_REGION: ${AWS_REGION:-eu-west-2}
+      AWS_DEFAULT_REGION: ${AWS_REGION:-eu-west-2}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-local}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-local}
+    volumes:
+      - ./scripts:/scripts:ro
+      - ./seed-data:/data:ro
+    depends_on:
+      dynamodb-init:
+        condition: service_completed_successfully
+
+volumes:
+  dynamodb-data:
+    name: train-hard-dynamodb-data
