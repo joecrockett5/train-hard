@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import { browser } from '$app/environment';
 	import { swipe } from 'svelte-gestures';
 	import { getLocalTimeZone, today, parseDate } from '@internationalized/date';
 	import { Calendar } from '$lib/components/ui/calendar/index.js';
@@ -57,9 +58,18 @@
 	$: longDate = `${asDate.getFullYear()}年の${asDate.getMonth() + 1}月${asDate.getDate()}日、${japaneseWeekdays[asDate.getDay()]}`;
 
 	async function loadDate(date) {
-		const response = await fetch(
-			`/api/workouts?date=${date.toString().split('T')[0]}`
-		);
+		// The subscription below runs during SSR as well as in the browser, and
+		// this is the global fetch, which cannot resolve a relative URL on the
+		// server. Previously the Cognito sign-in gate meant this page never
+		// server-rendered, so it was never reached; now it is.
+		if (!browser) {
+			return [];
+		}
+		const response = await fetch(`/api/workouts?date=${date.toString().split('T')[0]}`);
+		if (!response.ok) {
+			console.error(`Failed to load workouts for ${date}: ${response.status}`);
+			return [];
+		}
 		const workoutsForDate = await response.json();
 		return workoutsForDate;
 	}
