@@ -1,67 +1,29 @@
-import { env } from '$env/dynamic/private';
 import { type RequestHandler } from '@sveltejs/kit';
-import { type Tag } from '$lib/types';
+import { backendJson, handle } from '$lib/server/backend';
+import { toTag } from '$lib/mapping';
+import { type RawTag } from '$lib/types';
 
-export const GET: RequestHandler = async ({ url, params, locals }) => {
-	const { tagId } = params;
-	console.log(`GET /api/tags/${tagId}`);
-	const profileId = locals.profileId;
-	if (!profileId) {
-		console.log('No profile selected');
-		return new Response('Unauthorized', { status: 401 });
-	}
-	const response = await fetch(`${env.HARD_API}/tags/${tagId}`, {
-		headers: { 'X-Profile-Id': profileId }
-	});
-	const json = await response.json();
-	const formattedBody: Tag = {
-		userId: json.user_id,
-		timestamp: json.timestamp,
-		objectType: json.object_type,
-		objectId: json.object_id,
-		name: json.name,
-		colorHex: json.color_hex
-	};
-	return new Response(JSON.stringify(formattedBody), {
-		status: response.status,
-		headers: response.headers
-	});
-};
+export const GET: RequestHandler = ({ params, locals }) =>
+	handle(locals, async (profileId) =>
+		toTag(await backendJson<RawTag>(profileId, `/tags/${params.tagId}`))
+	);
 
-export const PUT: RequestHandler = async ({ url, params, request, locals }) => {
-	const { tagId } = params;
-	console.log(`PUT /api/tags/${tagId}`);
-	const profileId = locals.profileId;
-	if (!profileId) {
-		console.log('No profile selected');
-		return new Response('Unauthorized', { status: 401 });
-	}
-	const json = await request.json();
-	const formattedBody = {
-		timestamp: json.timestamp,
-		object_id: json.objectId,
-		name: json.name,
-		color_hex: json.colorHex
-	};
-	const response = await fetch(`${env.HARD_API}/tags/${tagId}`, {
-		method: 'PUT',
-		headers: { 'X-Profile-Id': profileId },
-		body: JSON.stringify(formattedBody)
+export const PUT: RequestHandler = ({ params, request, locals }) =>
+	handle(locals, async (profileId) => {
+		const body = await request.json();
+		const raw = await backendJson<RawTag>(profileId, `/tags/${params.tagId}`, {
+			method: 'PUT',
+			json: {
+				timestamp: body.timestamp,
+				object_id: body.objectId,
+				name: body.name,
+				color_hex: body.colorHex
+			}
+		});
+		return toTag(raw);
 	});
-	return response;
-};
 
-export const DELETE: RequestHandler = async ({ url, params, locals }) => {
-	const { tagId } = params;
-	console.log(`DELETE /api/tags/${tagId}`);
-	const profileId = locals.profileId;
-	if (!profileId) {
-		console.log('No profile selected');
-		return new Response('Unauthorized', { status: 401 });
-	}
-	const response = await fetch(`${env.HARD_API}/tags/${tagId}`, {
-		method: 'DELETE',
-		headers: { 'X-Profile-Id': profileId }
-	});
-	return response;
-};
+export const DELETE: RequestHandler = ({ params, locals }) =>
+	handle(locals, async (profileId) =>
+		toTag(await backendJson<RawTag>(profileId, `/tags/${params.tagId}`, { method: 'DELETE' }))
+	);

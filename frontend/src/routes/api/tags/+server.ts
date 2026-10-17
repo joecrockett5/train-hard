@@ -1,54 +1,25 @@
-import { env } from '$env/dynamic/private';
 import { type RequestHandler } from '@sveltejs/kit';
-import { type RawTag, type Tag } from '$lib/types';
-import { getTags, postTags } from '$lib/tag-helpers';
+import { backendJson, handle, query } from '$lib/server/backend';
+import { toTag } from '$lib/mapping';
+import { type RawTag } from '$lib/types';
 
-export const GET: RequestHandler = async ({ url, locals }) => {
-	// Need to update backend to allow for filtering by tag_date
-	// will then add tag support
-	console.log('GET /api/tags');
-	const profileId = locals.profileId;
-	if (!profileId) {
-		console.log('No profile selected');
-		return new Response('Unauthorized', { status: 401 });
-	}
-	const response = await fetch(`${env.HARD_API}/tags`, {
-		headers: { 'X-Profile-Id': profileId }
+export const GET: RequestHandler = ({ url, locals }) =>
+	handle(locals, async (profileId) => {
+		const path = `/tags${query({ target: url.searchParams.get('target') })}`;
+		const raw = await backendJson<RawTag[]>(profileId, path);
+		return raw.map(toTag);
 	});
-	const rawtags: RawTag[] = await response.json();
-	const tags: Tag[] = [];
-	rawtags.forEach((tag) => {
-		tags.push({
-			userId: tag.user_id,
-			timestamp: tag.timestamp,
-			objectType: tag.object_type,
-			objectId: tag.object_id,
-			name: tag.name,
-			colorHex: tag.color_hex
-		});
-	});
-	return new Response(JSON.stringify(tags), {
-		status: response.status,
-		headers: response.headers
-	});
-};
 
-export const POST: RequestHandler = async ({ url, request, locals }) => {
-	console.log('POST /api/tags');
-	const profileId = locals.profileId;
-	if (!profileId) {
-		console.log('No profile selected');
-		return new Response('Unauthorized', { status: 401 });
-	}
-	const json = await request.json();
-	const formattedBody = {
-		name: json.name,
-		color_hex: json.colorHex
-	};
-	const response = await fetch(`${env.HARD_API}/tags`, {
-		method: 'POST',
-		headers: { 'X-Profile-Id': profileId },
-		body: JSON.stringify(formattedBody)
-	});
-	return response;
-};
+export const POST: RequestHandler = ({ request, locals }) =>
+	handle(
+		locals,
+		async (profileId) => {
+			const body = await request.json();
+			const raw = await backendJson<RawTag>(profileId, '/tags', {
+				method: 'POST',
+				json: { name: body.name, color_hex: body.colorHex }
+			});
+			return toTag(raw);
+		},
+		201
+	);

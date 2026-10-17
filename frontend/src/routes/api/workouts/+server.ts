@@ -1,55 +1,23 @@
-import { env } from '$env/dynamic/private';
 import { type RequestHandler } from '@sveltejs/kit';
-import { type WorkoutInfo } from '$lib/types';
+import { backendJson, handle, query } from '$lib/server/backend';
+import { fromWorkout, toWorkoutInfo, type RawWorkout } from '$lib/mapping';
 
-export const GET: RequestHandler = async ({ url, locals }) => {
-	// Need to update backend to allow for filtering by workout_date
-	// will then add tag support
-	const date = url.searchParams.get('date');
-	console.log('GET /api/workouts' + (date ? `?date=${date}` : ''));
-	const profileId = locals.profileId;
-	if (!profileId) {
-		console.log('No profile selected');
-		return new Response('Unauthorized', { status: 401 });
-	}
-	const response = await fetch(`${env.HARD_API}/workouts` + (date ? `?date=${date}` : ''), {
-		headers: { 'X-Profile-Id': profileId }
+export const GET: RequestHandler = ({ url, locals }) =>
+	handle(locals, async (profileId) => {
+		const path = `/workouts${query({ date: url.searchParams.get('date') })}`;
+		const raw = await backendJson<RawWorkout[]>(profileId, path);
+		return raw.map(toWorkoutInfo);
 	});
-	const rawWorkouts = await response.json();
-	const workouts: WorkoutInfo[] = [];
-	for (const workout of rawWorkouts) {
-		workouts.push({
-			userId: workout.user_id,
-			timestamp: workout.timestamp,
-			objectType: workout.object_type,
-			objectId: workout.object_id,
-			workoutDate: workout.workout_date,
-			notes: workout.notes,
-			title: workout.title
-		});
-	}
-	return new Response(JSON.stringify(workouts), {
-		status: response.status
-	});
-};
 
-export const POST: RequestHandler = async ({ url, request, locals }) => {
-	console.log('POST /api/workouts');
-	const profileId = locals.profileId;
-	if (!profileId) {
-		console.log('No profile selected');
-		return new Response('Unauthorized', { status: 401 });
-	}
-	const json = await request.json();
-	const formattedBody = {
-		workout_date: json.workoutDate,
-		notes: json.notes,
-		title: json.title
-	};
-	const response = await fetch(`${env.HARD_API}/workouts`, {
-		method: 'POST',
-		headers: { 'X-Profile-Id': profileId, 'Content-Type': 'application/json' },
-		body: JSON.stringify(formattedBody)
-	});
-	return response;
-};
+export const POST: RequestHandler = ({ request, locals }) =>
+	handle(
+		locals,
+		async (profileId) => {
+			const raw = await backendJson<RawWorkout>(profileId, '/workouts', {
+				method: 'POST',
+				json: fromWorkout(await request.json())
+			});
+			return toWorkoutInfo(raw);
+		},
+		201
+	);

@@ -1,81 +1,45 @@
-import { env } from '$env/dynamic/private';
-import { type RequestHandler } from '@sveltejs/kit';
-import { type Exercise } from '$lib/types';
+import { error, type RequestHandler } from '@sveltejs/kit';
+import { backendJson, handle, query } from '$lib/server/backend';
+import { fromExerciseJoin, toExerciseJoin } from '$lib/mapping';
+import { type RawExerciseJoin } from '$lib/types';
 
-export const GET: RequestHandler = async ({ url, locals }) => {
-	// Need to update backend to allow for filtering by exercisejoin_date
-	// will then add tag support
-	const exerciseId = url.searchParams.get('exercise');
-	const workoutId = url.searchParams.get('workout');
-
-	// See the note in api/sets/+server.ts: concatenating a hardcoded '?' and
-	// '&' broke whenever only the second parameter was present.
-	const query = new URLSearchParams();
-	if (exerciseId) query.set('exercise', exerciseId);
-	if (workoutId) query.set('workout', workoutId);
-	const suffix = query.size ? `?${query}` : '';
-
-	console.log(`GET /api/exercise-joins${suffix}`);
-	const profileId = locals.profileId;
-	if (!profileId) {
-		console.log('No profile selected');
-		return new Response('Unauthorized', { status: 401 });
-	}
-	const response = await fetch(`${env.HARD_API}/exercise-joins${suffix}`, {
-		headers: { 'X-Profile-Id': profileId }
+export const GET: RequestHandler = ({ url, locals }) =>
+	handle(locals, async (profileId) => {
+		const path = `/exercise-joins${query({
+			exercise: url.searchParams.get('exercise'),
+			workout: url.searchParams.get('workout')
+		})}`;
+		const raw = await backendJson<RawExerciseJoin[]>(profileId, path);
+		return raw.map(toExerciseJoin);
 	});
-	const rawExerciseJoins = await response.json();
-	const exerciseJoins = [];
-	for (const join of rawExerciseJoins) {
-		exerciseJoins.push({
-			userId: join.user_id,
-			timestamp: join.timestamp,
-			objectType: join.object_type,
-			objectId: join.object_id,
-			exerciseId: join.exercise_id,
-			workoutId: join.workout_id
-		});
-	}
-	return new Response(JSON.stringify(exerciseJoins), {
-		status: response.status
-	});
-};
 
-export const POST: RequestHandler = async ({ url, request, locals }) => {
-	console.log('POST /api/exercise-joins');
-	const profileId = locals.profileId;
-	if (!profileId) {
-		console.log('No profile selected');
-		return new Response('Unauthorized', { status: 401 });
-	}
-	const json = await request.json();
-	const formattedBody = {
-		workout_id: json.workoutId,
-		exercise_id: json.exerciseId
-	};
-	const response = await fetch(`${env.HARD_API}/exercise-joins`, {
-		method: 'POST',
-		headers: { 'X-Profile-Id': profileId, 'Content-Type': 'application/json' },
-		body: JSON.stringify(formattedBody)
-	});
-	return response;
-};
-
-export const DELETE: RequestHandler = async ({ url, request, locals }) => {
-	const workoutId = url.searchParams.get('workoutId');
-	const exerciseId = url.searchParams.get('exerciseId');
-	console.log('DELETE /api/exercise-joins?workoutId=' + workoutId + '&exerciseId=' + exerciseId);
-	const profileId = locals.profileId;
-	if (!profileId) {
-		console.log('No profile selected');
-		return new Response('Unauthorized', { status: 401 });
-	}
-	const response = await fetch(
-		`${env.HARD_API}/exercise-joins?workout=${workoutId}&exercise=${exerciseId}`,
-		{
-			method: 'DELETE',
-			headers: { 'X-Profile-Id': profileId }
-		}
+export const POST: RequestHandler = ({ request, locals }) =>
+	handle(
+		locals,
+		async (profileId) => {
+			const raw = await backendJson<RawExerciseJoin>(profileId, '/exercise-joins', {
+				method: 'POST',
+				json: fromExerciseJoin(await request.json())
+			});
+			return toExerciseJoin(raw);
+		},
+		201
 	);
-	return response;
-};
+
+/** Removes the join between one workout and one exercise, and its sets. */
+export const DELETE: RequestHandler = ({ url, locals }) =>
+	handle(locals, async (profileId) => {
+		const workout = url.searchParams.get('workoutId') ?? url.searchParams.get('workout');
+		const exercise = url.searchParams.get('exerciseId') ?? url.searchParams.get('exercise');
+
+		if (!workout || !exercise) {
+			error(400, 'Both workout and exercise are required');
+		}
+
+		const raw = await backendJson<RawExerciseJoin>(
+			profileId,
+			`/exercise-joins${query({ workout, exercise })}`,
+			{ method: 'DELETE' }
+		);
+		return toExerciseJoin(raw);
+	});

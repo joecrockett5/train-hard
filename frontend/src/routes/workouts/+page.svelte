@@ -97,17 +97,7 @@
 			newWorkoutTitle = '';
 			newWorkoutNotes = '';
 
-			const json = await response.json();
-			const createdWorkout: WorkoutInfo = {
-				userId: json.user_id,
-				timestamp: json.timestamp,
-				objectType: json.object_type,
-				objectId: json.object_id,
-				title: json.title,
-				notes: json.notes,
-				workoutDate: json.workout_date,
-				tags: []
-			};
+			const createdWorkout: WorkoutInfo = await response.json();
 			workouts.push(createdWorkout);
 			workouts = workouts;
 		}
