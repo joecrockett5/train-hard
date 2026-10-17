@@ -1,4 +1,4 @@
-from fastapi import APIRouter, FastAPI, HTTPException, Response, status
+from fastapi import APIRouter, FastAPI, Response, status
 from fastapi.responses import JSONResponse
 from starlette.requests import Request
 
@@ -60,32 +60,36 @@ def health(response: Response):
     return {"status": "ok", "dynamodb": "ok"}
 
 
+# Every handler below returns a JSONResponse rather than raising
+# HTTPException. Raising from inside an exception handler does not produce that
+# status code: Starlette does not re-enter exception handling for it, so the
+# HTTPException propagates to ServerErrorMiddleware and the client gets a bare
+# 500. These handlers previously raised, which meant a missing item answered
+# 500 instead of 404, an ownership failure 500 instead of 401, and so on.
+def _error_response(status_code: int, exc: Exception) -> JSONResponse:
+    return JSONResponse(status_code=status_code, content={"detail": str(exc)})
+
+
 @app.exception_handler(InvalidAttributeChangeError)
 async def invalid_attr_exc_handler(_req: Request, exc: InvalidAttributeChangeError):
-    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    return _error_response(status.HTTP_400_BAD_REQUEST, exc)
 
 
 @app.exception_handler(AuthorizationError)
 async def authorization_exc_handler(_req: Request, exc: AuthorizationError):
-    # Returns a response rather than raising HTTPException. Raising from inside
-    # an exception handler does not produce that status: Starlette lets it
-    # propagate to the server error middleware, which answers 500. The handlers
-    # below are the app's pre-existing pattern and are left as they are.
-    return JSONResponse(
-        status_code=status.HTTP_401_UNAUTHORIZED, content={"detail": str(exc)}
-    )
+    return _error_response(status.HTTP_401_UNAUTHORIZED, exc)
 
 
 @app.exception_handler(ItemAccessUnauthorizedError)
 async def item_access_auth_exc_handler(_req: Request, exc: ItemAccessUnauthorizedError):
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc))
+    return _error_response(status.HTTP_401_UNAUTHORIZED, exc)
 
 
 @app.exception_handler(ItemNotFoundError)
 async def item_not_found_exc_handler(_req: Request, exc: ItemNotFoundError):
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    return _error_response(status.HTTP_404_NOT_FOUND, exc)
 
 
 @app.exception_handler(ItemAlreadyExistsError)
 async def item_already_exists_exc_handler(_req: Request, exc: ItemAlreadyExistsError):
-    raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+    return _error_response(status.HTTP_409_CONFLICT, exc)
