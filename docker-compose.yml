@@ -24,6 +24,10 @@ services:
       # Loopback only. Nothing outside this machine needs DynamoDB, and the
       # backend reaches it over the compose network regardless.
       - "127.0.0.1:${DYNAMODB_HOST_PORT:-8001}:8000"
+    # Without this the database does not come back after a host reboot, while
+    # the backend and frontend do -- the stack would restart into a broken
+    # state.
+    restart: unless-stopped
     healthcheck:
       # DynamoDB Local answers an unauthenticated GET with HTTP 400, which is
       # enough to prove the HTTP listener is up. The image ships a JRE but no
