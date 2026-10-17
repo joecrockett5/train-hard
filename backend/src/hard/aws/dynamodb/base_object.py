@@ -88,7 +88,12 @@ class BaseObject(BaseModel):
     def init_from_request(self, user: User, object_type: ObjectType):
         self.set_owner(user)
         self.set_object_type(object_type)
-        self.generate_id()
+        # A caller may supply its own `object_id`; `RestProcesses.post` has
+        # already rejected it as a duplicate if one exists. Calling
+        # `generate_id` unconditionally raised here, which made creating an
+        # object with a chosen id impossible.
+        if self.object_id is None:
+            self.generate_id()
         self.timestamp = datetime.now()
         return
 

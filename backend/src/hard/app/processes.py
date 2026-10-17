@@ -85,6 +85,15 @@ class RestProcesses:
         data_object: DB_OBJECT_TYPE,
     ) -> DB_OBJECT_TYPE:
         db = get_db_instance()
+        object_type = ObjectType.from_object_class(object_cls)
+
+        # An object that already names an owner may only be created by that
+        # owner. Without this a caller could submit an object attributed to
+        # somebody else and have it written into their partition.
+        if data_object.user_id is not None and not data_object.owned_by(user):
+            raise ItemAccessUnauthorizedError(
+                f"`{object_type.value}` Item not owned by current user ({user.id}): Cannot Create"
+            )
 
         if data_object.object_id:
 
@@ -96,10 +105,10 @@ class RestProcesses:
 
             else:
                 raise ItemAlreadyExistsError(
-                    f"Found `{ObjectType.from_object_class(object_cls).value}` with `object_id`: '{data_object.object_id}': Cannot Create"
+                    f"Found `{object_type.value}` with `object_id`: '{data_object.object_id}': Cannot Create"
                 )
 
-        data_object.init_from_request(user, ObjectType.from_object_class(object_cls))
+        data_object.init_from_request(user, object_type)
         result = db.put(data_object=data_object)
         return result
 
@@ -123,6 +132,14 @@ class RestProcesses:
         except ItemNotFoundError:
             raise ItemNotFoundError(
                 f"No `{ObjectType.from_object_class(object_cls).value}` found with `object_id`: '{updated_object.object_id}': Cannot Update"
+            )
+
+        except ItemAccessUnauthorizedError:
+            # Without this the message from `get` leaks through, telling the
+            # caller it "Cannot Fetch" an item it was trying to update.
+            # `delete` already restates it this way.
+            raise ItemAccessUnauthorizedError(
+                f"`{ObjectType.from_object_class(object_cls).value}` Item not owned by current user ({user.id}): Cannot Update"
             )
 
         for attr in CORE_ATTRIBUTES:

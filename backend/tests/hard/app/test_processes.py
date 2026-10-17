@@ -206,6 +206,8 @@ class TestPut:
                 "timestamp": "2024-05-06T00:00:00.000000",
                 "user_id": MOCK_USER_ID,
                 "workout_date": "2024-05-06",
+                "title": "Example Workout",
+                "notes": "",
             }
         )
         processes.post(Workout, mock_user, example_object)
@@ -248,6 +250,8 @@ class TestPut:
                 "timestamp": "2024-05-06T00:00:00.000000",
                 "user_id": MOCK_USER_ID,
                 "workout_date": "2024-05-06",
+                "title": "Example Workout",
+                "notes": "ORIGINAL",
             }
         )
         processes.post(Workout, mock_user, example_object)
@@ -273,7 +277,7 @@ class TestPut:
         }
         object_from_db = Workout.from_db(object_data)
 
-        assert object_from_db.notes == None
+        assert object_from_db.notes == "ORIGINAL"
         assert object_from_db.__dict__ == example_object.__dict__
 
     def test_invalid_attr_change(self, mock_user, processes, add_example_object_to_db):
