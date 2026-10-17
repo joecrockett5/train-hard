@@ -149,7 +149,7 @@ class RestProcesses:
                     f"Cannot Modify `{attr}` Attribute on `{current_obj.object_type.value}`"
                 )
 
-        result = db.put(data_object=updated_object)
+        result = db.put(data_object=updated_object, must_exist=True)
         return result
 
     @staticmethod
@@ -396,3 +396,38 @@ def workout_detail(user: User, workout_id: UUID) -> WorkoutDetail:
         exercises=exercises,
         all_exercises=all_exercises,
     )
+
+
+def delete_profile_data(profile_id: str) -> dict[str, int]:
+    """
+    Removes everything owned by a profile.
+
+    The partition key is "{profile_id}#{object_type}", so one query per object
+    type finds all of it. Called when a profile is deleted: without this the
+    rows stay forever, invisible but billable, and would reappear if a
+    profile were ever recreated with the same id.
+
+    Returns a count per object type, for the caller to log or report.
+    """
+    db = get_db_instance()
+    owner = User(id=profile_id, email=f"{profile_id}@profile.local")
+    removed: dict[str, int] = {}
+
+    for object_type in ObjectType:
+        if object_type is ObjectType.PROFILE:
+            continue
+
+        partition = PARTITION_TEMPLATE.format(
+            user_id=profile_id, object_type=object_type.value
+        )
+        items = db.query(key_expression=Key(DB_PARTITION).eq(partition))
+
+        for item in items:
+            db.delete_raw(
+                partition_key=item[DB_PARTITION], sort_key=item[DB_SORT_KEY]
+            )
+
+        if items:
+            removed[object_type.value] = len(items)
+
+    return removed

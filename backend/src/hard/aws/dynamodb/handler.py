@@ -12,6 +12,7 @@ from hard.aws.dynamodb.consts import (
     ITEM_INDEX_NAME,
     ITEM_INDEX_PARTITION,
     PARTITION_TEMPLATE,
+    ItemNotFoundError,
 )
 from hard.aws.dynamodb.object_type import ObjectType
 from hard.aws.models.user import User
@@ -162,11 +163,29 @@ class DynamoDB:
 
         return objects
 
-    def put(self, /, data_object: DB_OBJECT_TYPE) -> DB_OBJECT_TYPE:
+    def put(
+        self, /, data_object: DB_OBJECT_TYPE, must_exist: bool = False
+    ) -> DB_OBJECT_TYPE:
         """
-        'Puts' the given `data_object` into the DynamoDB table
+        'Puts' the given `data_object` into the DynamoDB table.
+
+        `must_exist` is for updates. `RestProcesses.put` reads the item before
+        writing it, and without a condition anything that deleted it in
+        between would be undone -- delete a workout in one tab, save an edit
+        in another, and it comes back. The condition closes that window.
         """
-        self._table.put_item(Item=data_object.to_db())
+        kwargs = {"Item": data_object.to_db()}
+
+        if must_exist:
+            kwargs["ConditionExpression"] = Attr(DB_PARTITION).exists()
+
+        try:
+            self._table.put_item(**kwargs)
+        except self._client.meta.client.exceptions.ConditionalCheckFailedException:
+            raise ItemNotFoundError(
+                f"`{data_object.object_type.value}` Item no longer exists: Cannot Update"
+            )
+
         return data_object
 
     def delete(self, /, data_object: DB_OBJECT_TYPE) -> DB_OBJECT_TYPE:
@@ -181,6 +200,18 @@ class DynamoDB:
             }
         )
         return data_object
+
+
+    def delete_raw(self, /, partition_key: str, sort_key: str) -> None:
+        """
+        Deletes by key, without needing the item parsed into a model.
+
+        Cascading a profile delete spans every object type, so the rows come
+        back as plain dicts rather than a single model class.
+        """
+        self._table.delete_item(
+            Key={DB_PARTITION: partition_key, DB_SORT_KEY: sort_key}
+        )
 
 
 def get_db_instance() -> DynamoDB:

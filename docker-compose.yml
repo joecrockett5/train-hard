@@ -21,7 +21,9 @@ services:
     volumes:
       - dynamodb-data:/data
     ports:
-      - "${DYNAMODB_HOST_PORT:-8001}:8000"
+      # Loopback only. Nothing outside this machine needs DynamoDB, and the
+      # backend reaches it over the compose network regardless.
+      - "127.0.0.1:${DYNAMODB_HOST_PORT:-8001}:8000"
     healthcheck:
       # DynamoDB Local answers an unauthenticated GET with HTTP 400, which is
       # enough to prove the HTTP listener is up. The image ships a JRE but no
@@ -80,7 +82,11 @@ services:
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-local}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-local}
     ports:
-      - "${BACKEND_HOST_PORT:-8000}:8000"
+      # Loopback only. The frontend reaches the backend over the compose
+      # network; this mapping exists for curl and /docs. Published on all
+      # interfaces it would let anything on the same network read any
+      # profile, since a profile id is the only credential.
+      - "127.0.0.1:${BACKEND_HOST_PORT:-8000}:8000"
     depends_on:
       dynamodb:
         condition: service_healthy
@@ -119,7 +125,10 @@ services:
       # at anything other than localhost.
       ORIGIN: ${ORIGIN:-http://localhost:${FRONTEND_HOST_PORT:-3000}}
     ports:
-      - "${FRONTEND_HOST_PORT:-3000}:3000"
+      # Left on all interfaces: this is a gym app, and reaching it from a
+      # phone on the same network is the point. Set FRONTEND_BIND to
+      # 127.0.0.1 to keep it on this machine.
+      - "${FRONTEND_BIND:-0.0.0.0}:${FRONTEND_HOST_PORT:-3000}:3000"
     depends_on:
       backend:
         condition: service_healthy

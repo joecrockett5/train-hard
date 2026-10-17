@@ -44,9 +44,9 @@ only if you want to change something (ports, mainly).
 | URL | What |
 | --- | --- |
 | http://localhost:3000 | The app |
-| http://localhost:8000/docs | Backend API docs (Swagger) |
-| http://localhost:8000/health | Backend health + DynamoDB reachability |
-| http://localhost:8001 | DynamoDB Local |
+| http://localhost:8000/docs | Backend API docs (Swagger), loopback only |
+| http://localhost:8000/health | Backend health + DynamoDB reachability, loopback only |
+| http://localhost:8001 | DynamoDB Local, loopback only |
 
 ## Profiles
 
@@ -158,8 +158,9 @@ documents all of them. The ones that matter:
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | `local` / `local` | Dummy. DynamoDB Local ignores them; boto3 requires them to exist. |
 | `ORIGIN` | `http://localhost:3000` | The browser-facing URL. `adapter-node` checks form POSTs against it and answers 403 if it does not match, so change it with `FRONTEND_HOST_PORT`. |
 | `FRONTEND_HOST_PORT` | `3000` | |
-| `BACKEND_HOST_PORT` | `8000` | |
-| `DYNAMODB_HOST_PORT` | `8001` | 8001 because the backend has 8000. |
+| `FRONTEND_BIND` | `0.0.0.0` | Published to the network so a phone can reach it. Set to `127.0.0.1` for this machine only. |
+| `BACKEND_HOST_PORT` | `8000` | Bound to 127.0.0.1. A profile id is the only credential the API takes, so it is deliberately not reachable from the network. |
+| `DYNAMODB_HOST_PORT` | `8001` | 8001 because the backend has 8000. Bound to 127.0.0.1. |
 
 No secrets are committed, and none are needed — the only credentials in the
 stack are the dummy values above.
