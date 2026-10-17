@@ -30,16 +30,17 @@
 		});
 	}
 
-	let warmupSetWeight = undefined;
-	let warmupSetReps = undefined;
+	let warmupSetWeight: number | undefined = undefined;
+	let warmupSetReps: number | undefined = undefined;
 	let warmupSetNotes = '';
 
-	let workingSetWeight = undefined;
-	let workingSetReps = undefined;
+	let workingSetWeight: number | undefined = undefined;
+	let workingSetReps: number | undefined = undefined;
 	let workingSetNotes = '';
 
-	if (workingSets.length > 0) {
-		workingSetWeight = workingSets.at(-1).weight;
+	const lastWorkingSet = workingSets.at(-1);
+	if (lastWorkingSet) {
+		workingSetWeight = lastWorkingSet.weight;
 	}
 
 	const creatingWarmupSet = writable(false);
@@ -141,7 +142,8 @@
 		}
 	}
 
-	let oldInstances;
+	/** Keyed by the exercise-join timestamp, as /api/sets/recent returns it. */
+	let oldInstances: Record<string, Set[]> | undefined;
 
 	async function fetchOldSets() {
 		const response = await fetch(
@@ -151,12 +153,19 @@
 			console.error(`Failed to fetch old sets for ${exercise.name}, got ${response.status}`);
 			return;
 		}
-		const instances = await response.json();
+		const instances: Record<string, Set[]> = await response.json();
 		oldInstances = instances;
 	}
 
-	function sortOldSets(instances: { timestamp: Set[] }) {
-		const sortedInstances = [];
+	type OldInstance = {
+		timestamp: Date;
+		warmup: Set[];
+		working: Set[];
+		title: string;
+	};
+
+	function sortOldSets(instances: Record<string, Set[]> | undefined): OldInstance[] {
+		const sortedInstances: OldInstance[] = [];
 
 		if (!instances) {
 			return sortedInstances;
@@ -178,12 +187,16 @@
 		// Sort chronologically
 		sortedInstances.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
-		if (sortedInstances && sortedInstances.at(-1).warmup.length > 0) {
-			warmupSetWeight = sortedInstances.at(-1).warmup[0].weight;
+		// `at(-1)` is undefined for an empty list, which the original code
+		// dereferenced directly.
+		const mostRecent = sortedInstances.at(-1);
+
+		if (mostRecent && mostRecent.warmup.length > 0) {
+			warmupSetWeight = mostRecent.warmup[0].weight;
 		}
 
-		if (sortedInstances && sortedInstances.at(-1).working.length > 0 && workingSets.length === 0) {
-			workingSetWeight = Math.max(...sortedInstances.at(-1).working.map((set) => set.weight));
+		if (mostRecent && mostRecent.working.length > 0 && workingSets.length === 0) {
+			workingSetWeight = Math.max(...mostRecent.working.map((set) => set.weight));
 		}
 
 		return sortedInstances;
@@ -209,7 +222,12 @@
 	// 	const mostRecentWorkingSets = applicableOldSets.at(-1).working;
 	// }
 
-	function setComparison(newSet: Set, oldSet: Set) {
+	function setComparison(newSet: Set, oldSet: Set | undefined) {
+		// There may be no corresponding set in the earlier instance -- a
+		// shorter previous session, or an index past its end.
+		if (!oldSet) {
+			return undefined;
+		}
 		if (newSet.weight > oldSet.weight) {
 			return 1;
 		} else if (workDone(newSet) > workDone(oldSet)) {
@@ -286,7 +304,7 @@
 													brief
 													display={setComparison(
 														set,
-														sortedOldInstances.at(workoutIndex - 1).working.at(setIndex)
+														sortedOldInstances.at(workoutIndex - 1)?.working.at(setIndex)
 													)}
 												/>
 											{:else}
@@ -327,7 +345,7 @@
 					<SetComponent
 						{set}
 						deletionCallback={deleteSet}
-						display={setComparison(set, sortedOldInstances.at(-1).working.at(setIndex))}
+						display={setComparison(set, sortedOldInstances.at(-1)?.working.at(setIndex))}
 					/>
 				{/each}
 				{#if $creatingWorkingSet}

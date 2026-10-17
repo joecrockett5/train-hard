@@ -1,5 +1,5 @@
 import type { Exercise, WorkoutInfo, Set } from '$lib/types';
-import type { PageLoad } from './$types';
+import type { PageServerLoad } from './$types';
 
 export const load = (async ({ fetch, params }) => {
 	const workoutId = params.workoutId;
@@ -33,8 +33,13 @@ export const load = (async ({ fetch, params }) => {
 	}
 
 	exercises.sort((a, b) => {
-		const aHasSets = a.sets.length > 0;
-		const bHasSets = b.sets.length > 0;
+		// `sets` is optional on Exercise; it is assigned just above, but only
+		// for exercises the sets request succeeded for.
+		const aSets = a.sets ?? [];
+		const bSets = b.sets ?? [];
+
+		const aHasSets = aSets.length > 0;
+		const bHasSets = bSets.length > 0;
 
 		// Objects with at least one set come first
 		if (aHasSets && !bHasSets) return -1;
@@ -42,8 +47,8 @@ export const load = (async ({ fetch, params }) => {
 		if (!aHasSets && !bHasSets) return 0;
 
 		// Both have sets; compare the date on the 0th element.
-		const dateA = new Date(a.sets[0].timestamp).getTime();
-		const dateB = new Date(b.sets[0].timestamp).getTime();
+		const dateA = new Date(aSets[0].timestamp ?? 0).getTime();
+		const dateB = new Date(bSets[0].timestamp ?? 0).getTime();
 		return dateA - dateB;
 	});
 
@@ -52,4 +57,4 @@ export const load = (async ({ fetch, params }) => {
 		exercises,
 		allExercises
 	};
-}) satisfies PageLoad;
+}) satisfies PageServerLoad;

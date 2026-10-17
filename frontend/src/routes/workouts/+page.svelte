@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { browser } from '$app/environment';
-	import { swipe } from 'svelte-gestures';
-	import { getLocalTimeZone, today, parseDate } from '@internationalized/date';
+	import { swipe, type SwipeCustomEvent } from 'svelte-gestures';
+	import { getLocalTimeZone, today, parseDate, type DateValue } from '@internationalized/date';
 	import { Calendar } from '$lib/components/ui/calendar/index.js';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
@@ -57,7 +57,7 @@
 	$: shortDate = `${asDate.getFullYear()}年${asDate.getMonth() + 1}月${asDate.getDate()}日`;
 	$: longDate = `${asDate.getFullYear()}年の${asDate.getMonth() + 1}月${asDate.getDate()}日、${japaneseWeekdays[asDate.getDay()]}`;
 
-	async function loadDate(date) {
+	async function loadDate(date: DateValue) {
 		// The subscription below runs during SSR as well as in the browser, and
 		// this is the global fetch, which cannot resolve a relative URL on the
 		// server. Previously the Cognito sign-in gate meant this page never
@@ -114,9 +114,9 @@
 		}
 	}
 
-	let direction;
+	let direction: string | null;
 
-	function handleSwipe(e) {
+	function handleSwipe(e: SwipeCustomEvent) {
 		direction = e.detail.direction;
 		switch (direction) {
 			case 'left':

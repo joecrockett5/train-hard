@@ -1,6 +1,6 @@
 import { env } from '$env/dynamic/private';
 import { type RequestHandler } from '@sveltejs/kit';
-import { type Tag } from '$lib/types';
+import { type RawTag, type Tag } from '$lib/types';
 import { getTags, postTags } from '$lib/tag-helpers';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
@@ -15,7 +15,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 	const response = await fetch(`${env.HARD_API}/tags`, {
 		headers: { 'X-Profile-Id': profileId }
 	});
-	const rawtags = await response.json();
+	const rawtags: RawTag[] = await response.json();
 	const tags: Tag[] = [];
 	rawtags.forEach((tag) => {
 		tags.push({

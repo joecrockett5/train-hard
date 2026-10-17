@@ -1,6 +1,6 @@
 import { env } from '$env/dynamic/private';
 import { type RequestHandler } from '@sveltejs/kit';
-import { type Workout } from '$lib/types';
+import { type WorkoutInfo } from '$lib/types';
 
 export const GET: RequestHandler = async ({ url, params, locals }) => {
 	const { workoutId } = params;
@@ -14,7 +14,7 @@ export const GET: RequestHandler = async ({ url, params, locals }) => {
 		headers: { 'X-Profile-Id': profileId }
 	});
 	const json = await response.json();
-	const formattedBody: Workout = {
+	const formattedBody: WorkoutInfo = {
 		userId: json.user_id,
 		timestamp: json.timestamp,
 		objectType: json.object_type,

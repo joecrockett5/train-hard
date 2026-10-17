@@ -1,6 +1,6 @@
 import { env } from '$env/dynamic/private';
 import { type RequestHandler } from '@sveltejs/kit';
-import { type Set } from '$lib/types';
+import { type RawExerciseJoin, type RawSet, type Set } from '$lib/types';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
 	// Need to update backend to allow for filtering by set_date
@@ -20,7 +20,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 	const exJoinsResponse = await fetch(`${env.HARD_API}/exercise-joins?exercise=${exerciseId}`, {
 		headers: { 'X-Profile-Id': profileId }
 	});
-	const exJoins = await exJoinsResponse.json();
+	const exJoins: RawExerciseJoin[] = await exJoinsResponse.json();
 	if (exJoins.length < 2) {
 		return new Response('No other instances found', { status: 404 });
 	}
@@ -33,8 +33,8 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 	const setsResponse = await fetch(`${env.HARD_API}/sets?exercise=${exerciseId}`, {
 		headers: { 'X-Profile-Id': profileId }
 	});
-	const rawSets = await setsResponse.json();
-	const recentInstances = {};
+	const rawSets: RawSet[] = await setsResponse.json();
+	const recentInstances: Record<string, Set[]> = {};
 	for (const join of last3) {
 		let relevantSets = rawSets
 			.filter((set) => join.object_id === set.exercise_join_id)

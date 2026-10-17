@@ -8,7 +8,9 @@
 
 	export let workout: WorkoutInfo;
 	export let href: string = '';
-	export let deletionCallback: (workout: WorkoutInfo) => void;
+	// Only reachable through the edit dialog, which `brief` hides, so
+	// callers rendering a brief card legitimately omit it.
+	export let deletionCallback: (workout: WorkoutInfo) => void = () => {};
 	export let brief: boolean = false;
 
 	let updatedTitle = workout.title;
@@ -95,7 +97,7 @@
 									<div class="flex items-center gap-2">
 										<span
 											class="rounded-full w-4 h-4 bg-gray-200"
-											style="background-color: {tag.color}"
+											style="background-color: {tag.colorHex}"
 										/>
 										<span>{tag.name}</span>
 									</div>

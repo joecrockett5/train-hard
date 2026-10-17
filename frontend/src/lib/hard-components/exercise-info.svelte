@@ -7,7 +7,9 @@
 	import Input from '$lib/components/ui/input/input.svelte';
 
 	export let exercise: Exercise;
-	export let deletionCallback: (exercise: Exercise) => void;
+	// Only reachable through the edit dialog, which `brief` hides, so
+	// callers rendering a brief card legitimately omit it.
+	export let deletionCallback: (exercise: Exercise) => void = () => {};
 	export let brief: boolean = false;
 
 	let updatedName = exercise.name;

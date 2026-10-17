@@ -1,8 +1,9 @@
 <script lang="ts">
 	import Input from '$lib/components/ui/input/input.svelte';
 
-	export let reps: number;
-	export let weight: number;
+	// Undefined until typed into: a new set starts with both fields blank.
+	export let reps: number | undefined;
+	export let weight: number | undefined;
 	export let notes: string;
 </script>
 

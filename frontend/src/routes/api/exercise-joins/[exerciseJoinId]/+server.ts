@@ -1,5 +1,6 @@
 import { env } from '$env/dynamic/private';
 import { type RequestHandler } from '@sveltejs/kit';
+import { type RawSet } from '$lib/types';
 import { type Exercise } from '$lib/types';
 
 export const GET: RequestHandler = async ({ url, params, locals }) => {
@@ -34,8 +35,10 @@ export const GET: RequestHandler = async ({ url, params, locals }) => {
 		workoutId: exerciseJoin.workout_id,
 		name: exerciseJoin.title,
 		description: exerciseJoin.notes,
-		tags: exerciseTags,
-		sets: setsData.map((set) => {
+		// Nothing in this handler fetches tags; `exerciseTags` was never
+		// defined, so this field has always been undefined at runtime.
+		tags: [],
+		sets: setsData.map((set: RawSet) => {
 			return {
 				userId: set.user_id,
 				timestamp: set.timestamp,
@@ -43,7 +46,9 @@ export const GET: RequestHandler = async ({ url, params, locals }) => {
 				objectId: set.object_id,
 				setType: set.set_type,
 				weight: set.weight,
-				weightUnit: set.weight_unit,
+				// The backend calls this `unit`; `weight_unit` does not exist on
+				// the payload, so this was always undefined.
+				weightUnit: set.unit,
 				reps: set.reps,
 				notes: set.notes,
 				exerciseJoinId: set.exercise_join_id

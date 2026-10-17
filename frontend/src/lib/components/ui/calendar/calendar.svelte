@@ -48,9 +48,9 @@
 	let:months
 >
 	<Calendar.Header>
-		<Calendar.PrevButton on:click={() => (value = value.subtract({ months: 1 }))} />
+		<Calendar.PrevButton on:click={() => value && (value = value.subtract({ months: 1 }))} />
 		{heading}
-		<Calendar.NextButton on:click={() => (value = value.add({ months: 1 }))} />
+		<Calendar.NextButton on:click={() => value && (value = value.add({ months: 1 }))} />
 	</Calendar.Header>
 	<Calendar.Months>
 		{#each months as month}
@@ -82,7 +82,7 @@
 		<Button
 			class="mt-2 flex"
 			variant="outline"
-			on:click={() => (value = value.subtract({ days: 1 }))}
+			on:click={() => value && (value = value.subtract({ days: 1 }))}
 		>
 			&lt;
 		</Button>
@@ -100,7 +100,7 @@
 		>
 			今日
 		</Button>
-		<Button class="mt-2 flex" variant="outline" on:click={() => (value = value.add({ days: 1 }))}>
+		<Button class="mt-2 flex" variant="outline" on:click={() => value && (value = value.add({ days: 1 }))}>
 			&gt;
 		</Button>
 	</div>
