@@ -11,7 +11,10 @@
 	import Skeleton from '$lib/components/ui/skeleton/skeleton.svelte';
 	import { writable } from 'svelte/store';
 	import ExerciseInfoComponent from '$lib/hard-components/exercise-info.svelte';
+	import TagBadge from '$lib/hard-components/tag-badge.svelte';
 	import * as Popover from '$lib/components/ui/popover/index.js';
+	import { summariseSets } from '$lib/sets';
+	import { sortTags } from '$lib/tags';
 
 	export let exercise: Exercise;
 	export let workoutId: string;
@@ -194,6 +197,11 @@
 	onMount(fetchOldSets);
 	$: sortedOldInstances = sortOldSets(oldInstances);
 
+	// Built from the live arrays rather than `exercise.sets`, so the minimised
+	// card reflects sets logged since the page loaded.
+	$: setSummary = summariseSets([...warmupSets, ...workingSets]);
+	$: tags = sortTags(exercise.tags ?? []);
+
 	let minimized = true;
 
 	function toggleMinimized() {
@@ -260,6 +268,16 @@
 				<Card.Description>{exercise.description}</Card.Description>
 			{/if}
 		</Card.Header>
+		{#if tags.length > 0}
+			<!-- Below the header, where the minimised card puts them. -->
+			<Card.Content class="pb-0">
+				<div class="flex flex-wrap gap-2">
+					{#each tags as tag (tag.objectId)}
+						<TagBadge {tag} />
+					{/each}
+				</div>
+			</Card.Content>
+		{/if}
 		<Card.Content>
 			<div>
 				{#if oldInstances}
@@ -357,6 +375,6 @@
 	</Card.Root>
 {:else}
 	<button on:click={toggleMinimized} class="w-full text-left">
-		<ExerciseInfoComponent {exercise} brief />
+		<ExerciseInfoComponent {exercise} brief {setSummary} />
 	</button>
 {/if}

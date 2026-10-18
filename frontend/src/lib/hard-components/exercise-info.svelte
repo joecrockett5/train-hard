@@ -8,6 +8,7 @@
 	import TagBadge from './tag-badge.svelte';
 	import TagPicker from './tag-picker.svelte';
 	import { sortTags } from '$lib/tags';
+	import type { SetSummaryEntry } from '$lib/sets';
 
 	export let exercise: Exercise;
 	/**
@@ -20,6 +21,12 @@
 	// callers rendering a brief card legitimately omit it.
 	export let deletionCallback: (exercise: Exercise) => void = () => {};
 	export let brief: boolean = false;
+	/**
+	 * This exercise's sets, for the minimised card on a workout page. Passed
+	 * in rather than read off `exercise.sets`, because the workout page keeps
+	 * its own live copy that changes as sets are logged.
+	 */
+	export let setSummary: SetSummaryEntry[] = [];
 
 	let updatedName = exercise.name;
 	let updatedDescription = exercise.description;
@@ -84,8 +91,23 @@
 		</Dialog.Root>
 	{/if}
 	<Card.Header>
-		<Card.Title>{exercise.name}</Card.Title>
-		<Card.Description>{exercise.description}</Card.Description>
+		<div class="flex items-start justify-between gap-3">
+			<div class="min-w-0 flex-1">
+				<Card.Title>{exercise.name}</Card.Title>
+				<Card.Description>{exercise.description}</Card.Description>
+			</div>
+			{#if setSummary.length > 0}
+				<!--
+					Wraps rather than truncating: on a long exercise the later
+					sets are the ones worth seeing, so hiding them behind an
+					ellipsis would hide the useful half.
+				-->
+				<p class="text-muted-foreground max-w-[55%] text-right text-sm leading-snug">
+					{#each setSummary as entry, index}<span class:italic={entry.warmup}>{entry.label}</span
+						>{#if index < setSummary.length - 1}{', '}{/if}{/each}
+				</p>
+			{/if}
+		</div>
 	</Card.Header>
 	{#if tags.length > 0}
 		<Card.Content>

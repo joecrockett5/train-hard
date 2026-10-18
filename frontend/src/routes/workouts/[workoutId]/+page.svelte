@@ -6,9 +6,9 @@
 	import { type Exercise, type WorkoutInfo } from '$lib/types';
 	import TagFilter from '$lib/hard-components/tag-filter.svelte';
 	import { filterByTags } from '$lib/tags';
-	import * as Pagination from '$lib/components/ui/pagination';
-	import ChevronLeft from 'lucide-svelte/icons/chevron-left';
-	import ChevronRight from 'lucide-svelte/icons/chevron-right';
+	import Pager, { PAGE_SIZE } from '$lib/hard-components/pager.svelte';
+	import Plus from 'lucide-svelte/icons/plus';
+	import { Button } from '$lib/components/ui/button';
 	import Input from '$lib/components/ui/input/input.svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { goto } from '$app/navigation';
@@ -43,12 +43,48 @@
 		.sort((a: Exercise, b: Exercise) => a.name.localeCompare(b.name));
 
 	let exercisePage = 1;
-	const pageSize = 3;
 
 	$: viewableExercises = possibleExercises.slice(
-		(exercisePage - 1) * pageSize,
-		exercisePage * pageSize
+		(exercisePage - 1) * PAGE_SIZE,
+		exercisePage * PAGE_SIZE
 	);
+
+	// Offered when the search finds nothing: mid-workout, the reason an
+	// exercise is missing is usually that it has never been done before, and
+	// leaving for the exercises page to make it loses your place.
+	$: canCreate = search.trim().length > 0 && possibleExercises.length === 0;
+	let creating = false;
+
+	async function createAndAdd() {
+		const name = search.trim();
+
+		if (!name || creating) {
+			return;
+		}
+		creating = true;
+
+		try {
+			const response = await fetch('/api/exercises', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ name, description: '' })
+			});
+
+			if (!response.ok) {
+				throw new Error(`Backend returned ${response.status}`);
+			}
+
+			const created: Exercise = await response.json();
+			// Into the picker's own source list too, so removing it from the
+			// workout later offers it again without a reload.
+			allExercises = [...allExercises, created];
+			await addExercise(created);
+		} catch (error) {
+			console.error(`Failed to create exercise '${name}': `, error);
+		} finally {
+			creating = false;
+		}
+	}
 
 	// Either control narrows the list, so both have to send it back to a page
 	// that still exists.
@@ -133,48 +169,22 @@
 		<Input placeholder="Name or description" bind:value={search} />
 		<TagFilter tags={filterableTags} bind:selected={selectedTagIds} />
 	</div>
-	<Pagination.Root
-		class="mt-4"
-		count={possibleExercises.length}
-		perPage={pageSize}
-		siblingCount={0}
-		let:pages
-		let:currentPage
-		bind:page={exercisePage}
-	>
-		<Pagination.Content>
-			<Pagination.Item>
-				<Pagination.PrevButton>
-					<ChevronLeft class="h-4 w-4" />
-				</Pagination.PrevButton>
-			</Pagination.Item>
-			{#each pages as page (page.key)}
-				{#if page.type === 'ellipsis'}
-					<Pagination.Item>
-						<Pagination.Ellipsis />
-					</Pagination.Item>
-				{:else}
-					<Pagination.Item>
-						<Pagination.Link {page} isActive={currentPage == page.value}>
-							{page.value}
-						</Pagination.Link>
-					</Pagination.Item>
-				{/if}
-			{/each}
-			<Pagination.Item>
-				<Pagination.NextButton>
-					<ChevronRight class="h-4 w-4" />
-				</Pagination.NextButton>
-			</Pagination.Item>
-		</Pagination.Content>
-	</Pagination.Root>
+	<Pager count={possibleExercises.length} bind:page={exercisePage} />
 
 	{#each viewableExercises as possibleExercise}
 		<Dialog.Close class="w-full text-left" on:click={() => addExercise(possibleExercise)}>
 			<ExerciseInfoComponent exercise={possibleExercise} brief />
 		</Dialog.Close>
 	{/each}
-	<div class={`h-[${(pageSize - viewableExercises.length) * 134}px]`} />
+
+	{#if canCreate}
+		<Dialog.Close class="w-full" on:click={createAndAdd}>
+			<Button variant="outline" class="mt-4 w-full justify-start text-left" disabled={creating}>
+				<Plus class="mr-2 h-4 w-4 shrink-0" />
+				Create “{search.trim()}” and add it
+			</Button>
+		</Dialog.Close>
+	{/if}
 </NewItem>
 
 {#each exercises as exercise}
