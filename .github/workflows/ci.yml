@@ -136,6 +136,19 @@ jobs:
       # The theme has to be in the first byte the server sends, or a dark
       # profile paints white before the JS runs. Asserting on the markup is
       # the only way to catch that regressing.
+      # The home page's summary reads the weigh-ins, and its button posts a
+      # workout dated today. A 200 alone would not catch either breaking.
+      - name: The home page shows the weight summary
+        run: |
+          set -euo pipefail
+
+          curl --fail --silent --cookie "profileId=${profile}" http://localhost:3000/ \
+            | grep -q 'Progress'
+
+          # Apostrophe-free on purpose: Svelte renders it as &#39;.
+          curl --fail --silent --cookie "profileId=${profile}" http://localhost:3000/ \
+            | grep -q 'Start today'
+
       # Exercises carry their tags joined on, which is what both tag filters
       # read. A regression here shows up as filters that match nothing.
       - name: Exercises come back with their tags

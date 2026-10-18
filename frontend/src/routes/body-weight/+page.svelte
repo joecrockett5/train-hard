@@ -7,6 +7,7 @@
 	import BodyWeightEntry from '$lib/hard-components/body-weight-entry.svelte';
 	import WeightChart from '$lib/hard-components/weight-chart.svelte';
 	import { sortEntries, UNIT } from '$lib/weight-chart';
+	import { todayIso } from '$lib/dates';
 	import type { BodyWeight } from '$lib/types';
 
 	export let data;
@@ -17,11 +18,7 @@
 	$: oldestFirst = sortEntries(entries);
 	$: newestFirst = oldestFirst.slice().reverse();
 
-	function today(): string {
-		return new Date().toLocaleDateString('en-CA');
-	}
-
-	let newDate = today();
+	let newDate = todayIso();
 	let newWeight = '';
 	let newNotes = '';
 
@@ -50,7 +47,7 @@
 		const created: BodyWeight = await response.json();
 		entries = [...entries, created];
 
-		newDate = today();
+		newDate = todayIso();
 		newWeight = '';
 		newNotes = '';
 	}
