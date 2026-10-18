@@ -6,6 +6,7 @@
 	import NewItem from '$lib/hard-components/new-item.svelte';
 	import BodyWeightEntry from '$lib/hard-components/body-weight-entry.svelte';
 	import WeightChart from '$lib/hard-components/weight-chart.svelte';
+	import Pager, { PAGE_SIZE } from '$lib/hard-components/pager.svelte';
 	import { sortEntries, UNIT } from '$lib/weight-chart';
 	import { todayIso } from '$lib/dates';
 	import type { BodyWeight } from '$lib/types';
@@ -14,9 +15,13 @@
 
 	let entries: BodyWeight[] = data.bodyWeights;
 
-	// The chart reads oldest first; the list below reads newest first.
+	let page = 1;
+
+	// The chart reads oldest first; the list below reads newest first. The
+	// chart always plots every entry -- only the list below it is paged.
 	$: oldestFirst = sortEntries(entries);
 	$: newestFirst = oldestFirst.slice().reverse();
+	$: viewableEntries = newestFirst.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
 	let newDate = todayIso();
 	let newWeight = '';
@@ -93,8 +98,12 @@
 	</Dialog.Footer>
 </NewItem>
 
-{#each newestFirst as entry (entry.objectId)}
+<Pager count={newestFirst.length} bind:page />
+
+{#each viewableEntries as entry (entry.objectId)}
 	<BodyWeightEntry {entry} deletionCallback={deleteEntry} />
 {/each}
 
 <div class="mb-8" />
+
+<Pager count={newestFirst.length} bind:page />
