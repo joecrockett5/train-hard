@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { profileCookieOptions } from './profile';
+import { profileCookieOptions, themeClass, themeCookieOptions, toProfile } from './profile';
 
 describe('profileCookieOptions', () => {
 	it('omits Secure over plain HTTP', () => {
@@ -24,5 +24,39 @@ describe('profileCookieOptions', () => {
 		expect(options.httpOnly).toBe(true);
 		expect(options.sameSite).toBe('lax');
 		expect(options.maxAge).toBeGreaterThan(0);
+	});
+});
+
+describe('themeCookieOptions', () => {
+	it('matches the profile cookie, so both survive the same deployment', () => {
+		// A Secure theme cookie over plain HTTP would be discarded, leaving a
+		// dark profile painting light on every load.
+		expect(themeCookieOptions(new URL('http://training.jmedia/'))).toEqual(
+			profileCookieOptions(new URL('http://training.jmedia/'))
+		);
+		expect(themeCookieOptions(new URL('https://training.jmedia/')).secure).toBe(true);
+	});
+});
+
+describe('themeClass', () => {
+	it('is the class Tailwind looks for, or nothing', () => {
+		expect(themeClass(true)).toBe('dark');
+		expect(themeClass(false)).toBe('');
+	});
+});
+
+describe('toProfile', () => {
+	it("renames the backend's fields", () => {
+		expect(toProfile({ object_id: 'p1', name: 'Joe', dark_mode: true })).toEqual({
+			objectId: 'p1',
+			name: 'Joe',
+			darkMode: true
+		});
+	});
+
+	it('defaults dark mode off when the field is absent', () => {
+		// A profile row written before dark_mode existed has no such key, and
+		// must not come back with darkMode undefined.
+		expect(toProfile({ object_id: 'p1', name: 'Joe' }).darkMode).toBe(false);
 	});
 });

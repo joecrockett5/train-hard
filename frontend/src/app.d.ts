@@ -5,6 +5,8 @@ declare global {
 		interface Locals {
 			/** Active profile id, read from the profileId cookie in hooks.server.ts. */
 			profileId?: string;
+			/** '' or 'dark', put on <html> so the first paint is the right theme. */
+			theme: string;
 		}
 		// interface Error {}
 		// interface PageData {}

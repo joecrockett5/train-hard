@@ -85,6 +85,27 @@ tested directly. No charting library is involved. Its line picks up the
 logo's red-to-orange gradient, via `--chart-from` / `--chart-to` in
 `app.css`.
 
+## Dark mode
+
+A per-profile preference, toggled with the sun/moon button in the nav sheet
+and stored as `dark_mode` on the profile, so it follows whoever is signed in
+rather than the browser.
+
+Tailwind is configured `darkMode: ['class']`, so the whole thing is one class
+on `<html>`. Getting that class right turns out to be the only interesting
+part, because it has to arrive two different ways:
+
+- **On a full page load**, `hooks.server.ts` puts it in the markup before the
+  response is sent. Waiting for JS would mean a white flash on every load of
+  a dark profile. It reads a `theme` cookie rather than resolving the
+  profile, which would put a backend round trip in front of every render; the
+  profile stays the source of truth and the layout corrects the cookie
+  whenever the two disagree.
+- **On a client-side navigation**, `+layout.svelte` syncs the class from the
+  layout's data. The profile picker submits with `use:enhance`, so choosing a
+  profile never replaces the document and the server-rendered class would
+  otherwise be left over from the previous profile.
+
 ## Running it on a server
 
 Behind a reverse proxy (Nginx Proxy Manager, Caddy, Traefik) on your own

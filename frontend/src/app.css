@@ -67,7 +67,13 @@
 		--destructive: 0 62.8% 30.6%;
 		--destructive-foreground: 210 40% 98%;
 
-		--ring: hsl(212.7, 26.8%, 83.9);
+		/*
+		 * Bare HSL components, like every other token: tailwind.config.js wraps
+		 * this in hsl(), so an hsl() here produced hsl(hsl(...)) and the dark
+		 * focus ring resolved to nothing. Invisible until now because nothing
+		 * ever put the .dark class on the page.
+		 */
+		--ring: 212.7 26.8% 83.9%;
 
 		--chart-from: 0 100% 59.6%;
 		--chart-to: 22.9 100% 65.1%;

@@ -3,9 +3,12 @@ import { fail, redirect, type Actions } from '@sveltejs/kit';
 import {
 	cacheProfile,
 	clearProfileCookie,
+	fetchProfile,
 	forgetProfile,
 	PROFILE_COOKIE,
-	profileCookieOptions
+	profileCookieOptions,
+	THEME_COOKIE,
+	themeCookieOptions
 } from '$lib/server/profile';
 import type { PageServerLoad } from './$types';
 
@@ -13,6 +16,7 @@ type BackendProfile = {
 	object_id: string;
 	name: string;
 	timestamp: string;
+	dark_mode?: boolean;
 };
 
 export type Profile = {
@@ -70,6 +74,18 @@ export const actions: Actions = {
 
 		forgetProfile(profileId);
 		cookies.set(PROFILE_COOKIE, profileId, profileCookieOptions(url));
+
+		// Resolve the profile now rather than letting the layout do it after
+		// the redirect: the cost is the same lookup either way, but doing it
+		// here means the page we redirect to is painted in the right theme
+		// instead of flashing the previous profile's.
+		const lookup = await fetchProfile(profileId);
+		cookies.set(
+			THEME_COOKIE,
+			lookup.status === 'ok' && lookup.profile.darkMode ? 'dark' : 'light',
+			themeCookieOptions(url)
+		);
+
 		redirect(303, redirectTo);
 	},
 
@@ -95,8 +111,13 @@ export const actions: Actions = {
 		}
 
 		const created: BackendProfile = await response.json();
-		cacheProfile({ objectId: created.object_id, name: created.name });
+		cacheProfile({
+			objectId: created.object_id,
+			name: created.name,
+			darkMode: created.dark_mode ?? false
+		});
 		cookies.set(PROFILE_COOKIE, created.object_id, profileCookieOptions(url));
+		cookies.set(THEME_COOKIE, 'light', themeCookieOptions(url));
 		redirect(303, redirectTo);
 	},
 

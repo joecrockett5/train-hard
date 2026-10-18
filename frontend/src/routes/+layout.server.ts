@@ -1,15 +1,15 @@
-import { env } from '$env/dynamic/private';
 import { redirect } from '@sveltejs/kit';
 import {
-	cacheProfile,
 	clearProfileCookie,
-	forgetProfile,
-	getCachedProfile
+	fetchProfile,
+	THEME_COOKIE,
+	themeCookieOptions
 } from '$lib/server/profile';
 import type { LayoutServerLoad } from './$types';
 
 /**
- * Resolves the active profile's display name for the nav.
+ * Resolves the active profile for the nav, and keeps the theme cookie
+ * honest.
  *
  * A cookie can outlive the profile it names -- most obviously after a
  * `docker compose down -v`, which empties the database but leaves the
@@ -25,20 +25,9 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 		return { profile: null };
 	}
 
-	const cached = getCachedProfile(locals.profileId);
-	if (cached) {
-		return { profile: cached };
-	}
+	const lookup = await fetchProfile(locals.profileId);
 
-	let response: Response;
-	try {
-		response = await fetch(`${env.HARD_API}/profiles/${locals.profileId}`);
-	} catch {
-		return { profile: { objectId: locals.profileId, name: locals.profileId } };
-	}
-
-	if (response.status === 404) {
-		forgetProfile(locals.profileId);
+	if (lookup.status === 'missing') {
 		clearProfileCookie(cookies, url);
 		locals.profileId = undefined;
 
@@ -48,10 +37,20 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 		return { profile: null };
 	}
 
-	if (!response.ok) {
-		return { profile: { objectId: locals.profileId, name: locals.profileId } };
+	if (lookup.status === 'unavailable') {
+		return {
+			profile: { objectId: locals.profileId, name: locals.profileId, darkMode: false }
+		};
 	}
 
-	const raw = await response.json();
-	return { profile: cacheProfile({ objectId: raw.object_id, name: raw.name }) };
+	// The cookie is only a copy of the profile's preference, so correct it
+	// whenever it has drifted -- the profile was changed from another browser,
+	// or this one was selected before the preference was known. The page being
+	// rendered right now already used the old value; the next one will not.
+	const theme = lookup.profile.darkMode ? 'dark' : 'light';
+	if (cookies.get(THEME_COOKIE) !== theme) {
+		cookies.set(THEME_COOKIE, theme, themeCookieOptions(url));
+	}
+
+	return { profile: lookup.profile };
 };

@@ -59,6 +59,44 @@ class TestProfiles:
         profile(client)
         assert client.get("/api/profiles").status_code == 200
 
+    def test_dark_mode_defaults_to_off(self, client):
+        profile_id = profile(client)
+
+        assert client.get(f"/api/profiles/{profile_id}").json()["dark_mode"] is False
+
+    def test_dark_mode_is_stored_on_the_profile(self, client):
+        profile_id = profile(client)
+        current = client.get(f"/api/profiles/{profile_id}").json()
+
+        updated = client.put(
+            f"/api/profiles/{profile_id}", json={**current, "dark_mode": True}
+        )
+
+        assert updated.status_code == 200, updated.text
+        assert updated.json()["dark_mode"] is True
+        assert client.get(f"/api/profiles/{profile_id}").json()["dark_mode"] is True
+
+    def test_dark_mode_is_per_profile(self, client):
+        mine = profile(client, "Mine")
+        theirs = profile(client, "Theirs")
+        current = client.get(f"/api/profiles/{mine}").json()
+
+        client.put(f"/api/profiles/{mine}", json={**current, "dark_mode": True})
+
+        assert client.get(f"/api/profiles/{mine}").json()["dark_mode"] is True
+        assert client.get(f"/api/profiles/{theirs}").json()["dark_mode"] is False
+
+    def test_a_profile_written_before_the_field_existed_still_loads(self, client):
+        """
+        `dark_mode` has a default precisely so that rows predating it load.
+        Creating one without the key is the closest the suite can get to a
+        row written by the previous version.
+        """
+        created = client.post("/api/profiles", json={"name": "Legacy"})
+
+        assert created.status_code == 201, created.text
+        assert created.json()["dark_mode"] is False
+
     def test_delete_removes_the_profiles_data(self, client):
         profile_id = profile(client)
         client.post("/api/workouts", json=make_workout(), headers=headers(profile_id))

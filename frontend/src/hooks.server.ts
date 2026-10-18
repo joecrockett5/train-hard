@@ -1,5 +1,5 @@
 import { redirect, type Handle } from '@sveltejs/kit';
-import { PROFILE_COOKIE } from '$lib/server/profile';
+import { PROFILE_COOKIE, THEME_COOKIE } from '$lib/server/profile';
 
 /** Routes reachable without a profile selected. */
 const UNGATED = ['/profiles'];
@@ -12,6 +12,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 	// partition the server-side API routes read and write, so there is nothing
 	// here to verify -- just somewhere to put it that every route can reach.
 	event.locals.profileId = event.cookies.get(PROFILE_COOKIE);
+
+	// Read from a cookie rather than resolved from the profile, so that
+	// putting the class on <html> costs nothing. See THEME_COOKIE.
+	event.locals.theme = event.cookies.get(THEME_COOKIE) === 'dark' ? 'dark' : '';
 
 	const { pathname } = event.url;
 	const ungated =
@@ -27,5 +31,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		redirect(307, `/profiles?redirectTo=${encodeURIComponent(pathname)}`);
 	}
 
-	return resolve(event);
+	return resolve(event, {
+		transformPageChunk: ({ html }) => html.replace('%theme%', event.locals.theme)
+	});
 };

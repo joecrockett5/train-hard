@@ -1,12 +1,31 @@
 <script lang="ts">
 	import '../app.css';
 
+	import { browser } from '$app/environment';
 	import * as Sheet from '$lib/components/ui/sheet/index.js';
 	import { ScrollArea } from '$lib/components/ui/scroll-area/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import RedPlus from '$lib/svg/red-plus.svelte';
+	import ThemeToggle from '$lib/hard-components/theme-toggle.svelte';
 
 	export let data;
+
+	/**
+	 * Keeps the theme class in step with the active profile.
+	 *
+	 * hooks.server.ts puts the class on <html> so the first paint is right,
+	 * but that only happens for a full document load. The profile picker
+	 * submits with `use:enhance`, so choosing a profile is a client-side
+	 * navigation and the document -- class and all -- is never replaced;
+	 * without this, switching from a dark profile to a light one left the old
+	 * theme on screen until the next hard reload.
+	 *
+	 * This re-runs whenever the layout's data does, which is every navigation.
+	 * Toggling does not change `data`, so it does not fight the toggle.
+	 */
+	$: if (browser) {
+		document.documentElement.classList.toggle('dark', data.profile?.darkMode ?? false);
+	}
 </script>
 
 {#if data.profile}
@@ -34,11 +53,14 @@
 					</div>
 				</div>
 			</Sheet.Close>
-			<form method="POST" action="/profiles?/switch">
-				<Button type="submit" variant="ghost" class="w-full">
-					{data.profile.name} · Switch profile
-				</Button>
-			</form>
+			<div class="flex items-center gap-2">
+				<form method="POST" action="/profiles?/switch" class="flex-1">
+					<Button type="submit" variant="ghost" class="w-full">
+						{data.profile.name} · Switch profile
+					</Button>
+				</form>
+				<ThemeToggle darkMode={data.profile.darkMode} />
+			</div>
 		</Sheet.Content>
 	</Sheet.Root>
 {/if}

@@ -133,6 +133,43 @@ jobs:
             [ "$code" = "200" ]
           done
 
+      # The theme has to be in the first byte the server sends, or a dark
+      # profile paints white before the JS runs. Asserting on the markup is
+      # the only way to catch that regressing.
+      - name: The theme is server-rendered
+        run: |
+          set -euo pipefail
+
+          curl --silent --cookie "profileId=${profile}; theme=dark" \
+            http://localhost:3000/ | grep -q '<html lang="en" class="dark">'
+
+          curl --silent --cookie "profileId=${profile}" \
+            http://localhost:3000/ | grep -q '<html lang="en" class="">'
+
+      - name: Toggling the theme stores it on the profile
+        run: |
+          set -euo pipefail
+
+          # The toggle's own path: the frontend endpoint, which updates the
+          # profile, drops its cached copy and re-sets the cookie.
+          curl --fail --silent -X PUT http://localhost:3000/api/theme \
+            -H 'Content-Type: application/json' --cookie "profileId=${profile}" \
+            -d '{"darkMode":true}' | grep -q '"darkMode":true'
+
+          curl --fail --silent "http://localhost:8000/api/profiles/${profile}" \
+            | python3 -c 'import json,sys; assert json.load(sys.stdin)["dark_mode"] is True, "not stored on the profile"'
+
+          curl --fail --silent -X PUT http://localhost:3000/api/theme \
+            -H 'Content-Type: application/json' --cookie "profileId=${profile}" \
+            -d '{"darkMode":false}' | grep -q '"darkMode":false'
+
+          # A non-boolean is refused, and without a profile there is nothing
+          # to store it on.
+          [ "$(curl --silent -o /dev/null -w '%{http_code}' -X PUT http://localhost:3000/api/theme \
+            -H 'Content-Type: application/json' --cookie "profileId=${profile}" -d '{"darkMode":"yes"}')" = "400" ]
+          [ "$(curl --silent -o /dev/null -w '%{http_code}' -X PUT http://localhost:3000/api/theme \
+            -H 'Content-Type: application/json' -d '{"darkMode":true}')" = "401" ]
+
       - name: Service logs on failure
         if: failure()
         run: docker compose logs --no-color --tail 200
