@@ -23,7 +23,11 @@ from hard.models.set import Set
 from hard.models.tag import Tag
 from hard.models.tag_join import TagJoin
 from hard.models.workout import Workout
-from hard.models.workout_detail import ExerciseWithSets, WorkoutDetail
+from hard.models.workout_detail import (
+    ExerciseWithSets,
+    ExerciseWithTags,
+    WorkoutDetail,
+)
 
 
 class RestProcesses:
@@ -342,6 +346,54 @@ def tags_from_target_id(user: User, /, target_id: UUID) -> list[Tag]:
     return tags
 
 
+def tags_by_target(user: User) -> dict[str, list[Tag]]:
+    """
+    Every tag the profile has applied, grouped by what it is applied to.
+
+    Two partition queries regardless of how many things are tagged. The
+    per-item alternative, `tags_from_target_id`, costs a query each and is
+    only worth it when a single item's tags are all that is wanted.
+
+    A join pointing at a tag that has since been deleted is skipped rather
+    than failing the request.
+    """
+    joins = RestProcesses.get_list(TagJoin, user)
+    tags_by_id = {str(tag.object_id): tag for tag in RestProcesses.get_list(Tag, user)}
+
+    grouped: dict[str, list[Tag]] = {}
+    for join in joins:
+        tag = tags_by_id.get(str(join.tag_id))
+        if tag is None:
+            continue
+        grouped.setdefault(str(join.target_id), []).append(tag)
+
+    for tags in grouped.values():
+        tags.sort(key=lambda tag: tag.name.lower())
+
+    return grouped
+
+
+def exercises_with_tags(user: User) -> list[ExerciseWithTags]:
+    """Every exercise the profile has, each with its tags."""
+    grouped = tags_by_target(user)
+
+    return [
+        ExerciseWithTags(
+            **exercise.model_dump(),
+            tags=grouped.get(str(exercise.object_id), []),
+        )
+        for exercise in RestProcesses.get_list(Exercise, user)
+    ]
+
+
+def tag_join_for_pair(user: User, /, target_id: UUID, tag_id: UUID) -> TagJoin | None:
+    """The join tying one tag to one target, if it exists."""
+    for join in tag_join_filter(user, target_id=target_id):
+        if join.tag_id == tag_id:
+            return join
+    return None
+
+
 def workout_detail(user: User, workout_id: UUID) -> WorkoutDetail:
     """
     Everything the workout page needs, in four queries.
@@ -362,10 +414,10 @@ def workout_detail(user: User, workout_id: UUID) -> WorkoutDetail:
         for join in RestProcesses.get_list(ExerciseJoin, user)
         if join.workout_id == workout_id
     ]
-    all_exercises = RestProcesses.get_list(Exercise, user)
+    tagged = exercises_with_tags(user)
     all_sets = RestProcesses.get_list(Set, user)
 
-    exercises_by_id = {exercise.object_id: exercise for exercise in all_exercises}
+    exercises_by_id = {exercise.object_id: exercise for exercise in tagged}
 
     sets_by_join: dict[str, list[Set]] = {}
     for data_set in all_sets:
@@ -394,7 +446,7 @@ def workout_detail(user: User, workout_id: UUID) -> WorkoutDetail:
     return WorkoutDetail(
         workout=workout,
         exercises=exercises,
-        all_exercises=all_exercises,
+        all_exercises=tagged,
     )
 
 

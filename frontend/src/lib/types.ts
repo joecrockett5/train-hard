@@ -10,6 +10,11 @@ export type Tag = Base & {
 	colorHex: string;
 };
 
+export type TagJoin = Base & {
+	targetId: string;
+	tagId: string;
+};
+
 export type Set = Base & {
 	setType: 'working' | 'warmup';
 	weight: number;
@@ -78,6 +83,11 @@ export type RawSet = RawBase & {
 export type RawExerciseJoin = RawBase & {
 	workout_id: string;
 	exercise_id: string;
+};
+
+export type RawTagJoin = RawBase & {
+	target_id: string;
+	tag_id: string;
 };
 
 export type RawBodyWeight = RawBase & {

@@ -5,19 +5,32 @@
 	import Input from '$lib/components/ui/input/input.svelte';
 	import { buttonVariants } from '$lib/components/ui/button';
 	import * as Dialog from '$lib/components/ui/dialog';
-	import { type Exercise } from '$lib/types';
+	import { type Exercise, type Tag } from '$lib/types';
 	import * as Pagination from '$lib/components/ui/pagination';
 	import ChevronLeft from 'lucide-svelte/icons/chevron-left';
 	import ChevronRight from 'lucide-svelte/icons/chevron-right';
+	import TagFilter from '$lib/hard-components/tag-filter.svelte';
+	import { filterByTags } from '$lib/tags';
 
 	export let data;
 
 	let page = 1;
 
-	let { exercises } = data;
-	exercises = exercises.sort((a: Exercise, b: Exercise) => a.name.localeCompare(b.name));
+	let exercises: Exercise[] = data.exercises.sort((a: Exercise, b: Exercise) =>
+		a.name.localeCompare(b.name)
+	);
+	let allTags: Tag[] = data.tags;
+	let selectedTagIds: string[] = [];
 
-	$: viewableExercises = exercises.slice((page - 1) * 10, page * 10);
+	$: matching = filterByTags(exercises, selectedTagIds);
+
+	// Page 1 is the only page certain to exist after the filter narrows the
+	// list; staying on page 4 of 4 would otherwise show nothing.
+	$: if (selectedTagIds) {
+		page = 1;
+	}
+
+	$: viewableExercises = matching.slice((page - 1) * 10, page * 10);
 
 	let newExerciseName = '';
 	let newExerciseDescription = '';
@@ -32,8 +45,7 @@
 				},
 				body: JSON.stringify({
 					name: newExerciseName,
-					description: newExerciseDescription,
-					tags: []
+					description: newExerciseDescription
 				})
 			});
 			if (!response.ok) {
@@ -43,10 +55,7 @@
 			newExerciseDescription = '';
 
 			const createdExercise: Exercise = await response.json();
-			exercises.push(createdExercise);
-			exercises = exercises;
-
-			console.log('exercises: ', exercises);
+			exercises = [...exercises, createdExercise];
 		}
 	}
 
@@ -59,7 +68,6 @@
 			console.error('Failed to delete exercise: ', exercise);
 		} else {
 			exercises = exercises.filter((e: Exercise) => e.objectId !== exercise.objectId);
-			exercises = exercises;
 		}
 	}
 </script>
@@ -71,8 +79,17 @@
 <Card.Root class="mt-4">
 	<Card.Header>
 		<Card.Title>Exercises</Card.Title>
-		<Card.Description>All exercises</Card.Description>
+		<Card.Description>
+			{#if selectedTagIds.length > 0}
+				{matching.length} of {exercises.length} exercises
+			{:else}
+				All exercises
+			{/if}
+		</Card.Description>
 	</Card.Header>
+	<Card.Content class="pt-0">
+		<TagFilter tags={allTags} bind:selected={selectedTagIds} />
+	</Card.Content>
 </Card.Root>
 
 <NewItem item="Exercise">
@@ -90,7 +107,7 @@
 
 <Pagination.Root
 	class="mt-4"
-	count={exercises.length}
+	count={matching.length}
 	perPage={10}
 	let:pages
 	let:currentPage
@@ -123,15 +140,19 @@
 	</Pagination.Content>
 </Pagination.Root>
 
-{#each viewableExercises as exercise}
-	<ExerciseInfoComponent {exercise} deletionCallback={deleteExercise} />
+{#each viewableExercises as exercise (exercise.objectId)}
+	<ExerciseInfoComponent {exercise} bind:allTags deletionCallback={deleteExercise} />
 {/each}
+
+{#if matching.length === 0}
+	<p class="text-muted-foreground mt-8 text-center text-sm">No exercises match those tags.</p>
+{/if}
 
 <div class="mb-8" />
 
 <Pagination.Root
 	class="mt-4"
-	count={exercises.length}
+	count={matching.length}
 	perPage={10}
 	let:pages
 	let:currentPage

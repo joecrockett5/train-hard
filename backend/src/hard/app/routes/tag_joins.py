@@ -1,9 +1,10 @@
+from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from starlette.requests import Request
 
-from hard.app.processes import RestProcesses
+from hard.app.processes import RestProcesses, tag_join_filter, tag_join_for_pair
 from hard.aws.interfaces.fastapi import request
 from hard.models.tag_join import TagJoin
 
@@ -13,8 +14,13 @@ router = APIRouter(prefix="/tag-joins")
 @router.get("", response_model=list[TagJoin])
 async def list_tag_joins(
     req: Request,
+    target: Optional[UUID] = None,
 ) -> list[TagJoin]:
     user = request.get_user_claims(req)
+
+    if target:
+        return tag_join_filter(user, target_id=target)
+
     return RestProcesses.get_list(TagJoin, user)
 
 
@@ -62,3 +68,25 @@ async def delete_tag_join(
     deleted_tag_join = RestProcesses.delete(TagJoin, user, UUID(tag_join_id))
 
     return deleted_tag_join
+
+
+@router.delete("", response_model=TagJoin)
+async def delete_tag_join_from_ids(
+    req: Request,
+    target: UUID,
+    tag: UUID,
+) -> TagJoin:
+    """
+    Removes one tag from one target.
+
+    Untagging knows the tag and the thing tagged, not the id of the join
+    between them, so this saves the caller listing the joins to find it --
+    the same shape as `DELETE /exercise-joins`.
+    """
+    user = request.get_user_claims(req)
+    join = tag_join_for_pair(user, target_id=target, tag_id=tag)
+
+    if join is None:
+        raise HTTPException(status_code=404, detail="No tag join found")
+
+    return RestProcesses.delete(TagJoin, user, join.object_id)

@@ -5,10 +5,24 @@ from pydantic import BaseModel, Field, field_serializer
 
 from hard.models.exercise import Exercise
 from hard.models.set import Set
+from hard.models.tag import Tag
 from hard.models.workout import Workout
 
 
-class ExerciseWithSets(Exercise):
+class ExerciseWithTags(Exercise):
+    """
+    An exercise plus the tags applied to it.
+
+    Tags are resolved through `TagJoin`, so reading them per exercise would be
+    a query each. Every endpoint that returns exercises builds these by
+    reading the joins and the tags once and matching them up in memory, the
+    same way `workout_detail` handles sets.
+    """
+
+    tags: list[Tag] = Field(default_factory=list)
+
+
+class ExerciseWithSets(ExerciseWithTags):
     """An exercise as it appears within one workout, with that workout's sets."""
 
     join_id: Optional[UUID] = Field(default=None)
@@ -34,4 +48,4 @@ class WorkoutDetail(BaseModel):
 
     workout: Workout
     exercises: list[ExerciseWithSets]
-    all_exercises: list[Exercise]
+    all_exercises: list[ExerciseWithTags]

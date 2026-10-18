@@ -136,6 +136,39 @@ jobs:
       # The theme has to be in the first byte the server sends, or a dark
       # profile paints white before the JS runs. Asserting on the markup is
       # the only way to catch that regressing.
+      # Exercises carry their tags joined on, which is what both tag filters
+      # read. A regression here shows up as filters that match nothing.
+      - name: Exercises come back with their tags
+        run: |
+          set -euo pipefail
+
+          tag=$(curl --fail --silent -X POST http://localhost:8000/api/tags \
+            -H 'Content-Type: application/json' -H "X-Profile-Id: ${profile}" \
+            -d '{"name":"Push","color_hex":"#e11d48"}' \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["object_id"])')
+
+          exercise=$(curl --fail --silent -X POST http://localhost:8000/api/exercises \
+            -H 'Content-Type: application/json' -H "X-Profile-Id: ${profile}" \
+            -d '{"name":"Bench","description":""}' \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["object_id"])')
+
+          curl --fail --silent -X POST http://localhost:8000/api/tag-joins \
+            -H 'Content-Type: application/json' -H "X-Profile-Id: ${profile}" \
+            -d "{\"target_id\":\"${exercise}\",\"tag_id\":\"${tag}\"}" > /dev/null
+
+          curl --fail --silent -H "X-Profile-Id: ${profile}" \
+            http://localhost:8000/api/exercises \
+            | python3 -c 'import json,sys; e=[x for x in json.load(sys.stdin) if x["name"]=="Bench"][0]; assert [t["name"] for t in e["tags"]] == ["Push"], e'
+
+          # Untagging is keyed by the pair, not the join id.
+          curl --fail --silent -X DELETE \
+            "http://localhost:8000/api/tag-joins?target=${exercise}&tag=${tag}" \
+            -H "X-Profile-Id: ${profile}" > /dev/null
+
+          curl --fail --silent -H "X-Profile-Id: ${profile}" \
+            http://localhost:8000/api/exercises \
+            | python3 -c 'import json,sys; e=[x for x in json.load(sys.stdin) if x["name"]=="Bench"][0]; assert e["tags"] == [], e'
+
       - name: The theme is server-rendered
         run: |
           set -euo pipefail

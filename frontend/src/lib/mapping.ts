@@ -15,8 +15,10 @@ import type {
 	RawExerciseJoin,
 	RawSet,
 	RawTag,
+	RawTagJoin,
 	Set,
 	Tag,
+	TagJoin,
 	Template,
 	WorkoutInfo
 } from '$lib/types';
@@ -39,6 +41,8 @@ export type RawExercise = {
 	object_type: string;
 	name: string;
 	description: string | null;
+	/** Absent from the endpoints that do not join the tags in. */
+	tags?: RawTag[];
 };
 
 /** An exercise inside one workout, as /workouts/{id}/detail returns it. */
@@ -82,7 +86,8 @@ export function toExercise(raw: RawExercise): Exercise {
 		objectType: raw.object_type,
 		objectId: raw.object_id,
 		name: raw.name,
-		description: raw.description ?? ''
+		description: raw.description ?? '',
+		tags: (raw.tags ?? []).map(toTag)
 	};
 }
 
@@ -142,6 +147,17 @@ export function toBodyWeight(raw: RawBodyWeight): BodyWeight {
 		entryDate: raw.entry_date,
 		weight: raw.weight,
 		notes: raw.notes ?? ''
+	};
+}
+
+export function toTagJoin(raw: RawTagJoin): TagJoin {
+	return {
+		userId: raw.user_id,
+		timestamp: raw.timestamp,
+		objectType: raw.object_type,
+		objectId: raw.object_id,
+		targetId: raw.target_id,
+		tagId: raw.tag_id
 	};
 }
 
@@ -205,6 +221,13 @@ export function fromBodyWeight(body: Partial<BodyWeight>, { forUpdate = false } 
 		entry_date: body.entryDate,
 		weight: body.weight,
 		notes: body.notes ?? ''
+	};
+}
+
+export function fromTagJoin(body: { targetId?: string; tagId?: string }) {
+	return {
+		target_id: body.targetId,
+		tag_id: body.tagId
 	};
 }
 

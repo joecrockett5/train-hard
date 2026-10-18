@@ -85,6 +85,32 @@ tested directly. No charting library is involved. Its line picks up the
 logo's red-to-orange gradient, via `--chart-from` / `--chart-to` in
 `app.css`.
 
+## Tags
+
+Exercises can be tagged, mainly with workout types -- Legs, Push, Pull. Tags
+are made and applied from an exercise's edit dialog, and both the exercises
+page and the add-an-exercise picker on a workout filter by them.
+
+Filtering is **any**, not all: the tags are workout types, so picking Push and
+Pull means "the exercises I could do on either day" rather than exercises
+that are somehow both.
+
+A tag is stored with one colour, taken from a fixed palette in
+[frontend/src/lib/tags.ts](frontend/src/lib/tags.ts). A new tag gets the
+first colour nothing else is using, so a profile's tags come out distinct
+without anyone picking colours. The badge mixes its fill and border from that
+single value (`.tag-badge` in `app.css`), which is why one stored colour
+reads correctly in both themes -- the value is the mid-tone used for the
+label, and the pale wash behind it is the same colour at low opacity.
+
+Only exercises are taggable. The `Tag` model carries `for_sets` /
+`for_workouts` flags from an earlier design and nothing reads them yet.
+
+Tags resolve through `TagJoin`, so reading them per exercise would be a query
+each. Every endpoint that returns exercises builds them with
+`exercises_with_tags`, which reads the joins and the tags once and matches
+them in memory -- the same approach `workout_detail` takes for sets.
+
 ## Dark mode
 
 A per-profile preference, toggled with the sun/moon button in the nav sheet

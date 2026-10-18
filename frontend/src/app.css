@@ -88,3 +88,32 @@
 		@apply bg-background text-foreground;
 	}
 }
+
+@layer components {
+	/*
+	 * A tag badge, coloured from the single `--tag` value the caller sets
+	 * inline. Everything else is mixed from it, so a tag needs to store one
+	 * colour rather than a matched set of three that could drift apart.
+	 *
+	 * `--tag` is a mid-tone, used as-is for the label. The fill and the
+	 * border are that colour at low opacity, which over a white background
+	 * gives the pale wash and over a dark one gives a muted version of the
+	 * same hue -- so one stored value covers both themes.
+	 */
+	.tag-badge {
+		background-color: color-mix(in srgb, var(--tag, currentColor) 12%, transparent);
+		border-color: color-mix(in srgb, var(--tag, currentColor) 30%, transparent);
+		color: var(--tag, currentColor);
+	}
+
+	/*
+	 * A 600-weight colour is too dark to read against the dark background, so
+	 * the label is lifted towards white and the fill carries a little more of
+	 * the hue to stay visible.
+	 */
+	.dark .tag-badge {
+		background-color: color-mix(in srgb, var(--tag, currentColor) 22%, transparent);
+		border-color: color-mix(in srgb, var(--tag, currentColor) 40%, transparent);
+		color: color-mix(in srgb, var(--tag, currentColor) 60%, white);
+	}
+}

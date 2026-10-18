@@ -438,3 +438,177 @@ class TestBodyWeights:
         assert client.delete(f"/api/profiles/{profile_id}").status_code == 200
 
         assert client.get("/api/body-weights", headers=auth).json() == []
+
+
+class TestExerciseTags:
+    """
+    Tagging exercises, and the joined reads the exercise list depends on.
+    """
+
+    @staticmethod
+    def tag(client, auth, name="Push", color="#e11d48") -> dict:
+        response = client.post(
+            "/api/tags", json={"name": name, "color_hex": color}, headers=auth
+        )
+        assert response.status_code == 201, response.text
+        return response.json()
+
+    @staticmethod
+    def exercise(client, auth, name="Bench") -> dict:
+        response = client.post(
+            "/api/exercises", json={"name": name, "description": ""}, headers=auth
+        )
+        assert response.status_code == 201, response.text
+        return response.json()
+
+    @staticmethod
+    def apply(client, auth, exercise, tag):
+        response = client.post(
+            "/api/tag-joins",
+            json={"target_id": exercise["object_id"], "tag_id": tag["object_id"]},
+            headers=auth,
+        )
+        assert response.status_code == 201, response.text
+        return response.json()
+
+    def test_an_untagged_exercise_lists_an_empty_tag_list(self, client):
+        auth = headers(profile(client))
+        self.exercise(client, auth)
+
+        listed = client.get("/api/exercises", headers=auth).json()
+
+        assert listed[0]["tags"] == []
+
+    def test_an_exercise_lists_the_tags_applied_to_it(self, client):
+        auth = headers(profile(client))
+        exercise = self.exercise(client, auth)
+        tag = self.tag(client, auth, "Push")
+        self.apply(client, auth, exercise, tag)
+
+        listed = client.get("/api/exercises", headers=auth).json()
+
+        assert [t["name"] for t in listed[0]["tags"]] == ["Push"]
+        assert listed[0]["tags"][0]["color_hex"] == "#e11d48"
+
+    def test_tags_are_sorted_by_name(self, client):
+        auth = headers(profile(client))
+        exercise = self.exercise(client, auth)
+        for name in ["Push", "Arms", "legs"]:
+            self.apply(client, auth, exercise, self.tag(client, auth, name))
+
+        listed = client.get("/api/exercises", headers=auth).json()
+
+        assert [t["name"] for t in listed[0]["tags"]] == ["Arms", "legs", "Push"]
+
+    def test_a_tag_reaches_only_the_exercise_it_was_applied_to(self, client):
+        auth = headers(profile(client))
+        bench = self.exercise(client, auth, "Bench")
+        squat = self.exercise(client, auth, "Squat")
+        self.apply(client, auth, bench, self.tag(client, auth, "Push"))
+
+        by_name = {e["name"]: e for e in client.get("/api/exercises", headers=auth).json()}
+
+        assert [t["name"] for t in by_name["Bench"]["tags"]] == ["Push"]
+        assert by_name["Squat"]["tags"] == []
+
+    def test_a_join_pointing_at_a_deleted_tag_is_skipped(self, client):
+        """
+        Deleting a tag leaves its joins behind. The list must still render
+        rather than failing on the dangling reference.
+        """
+        auth = headers(profile(client))
+        exercise = self.exercise(client, auth)
+        tag = self.tag(client, auth)
+        self.apply(client, auth, exercise, tag)
+
+        assert client.delete(f"/api/tags/{tag['object_id']}", headers=auth).status_code == 200
+
+        listed = client.get("/api/exercises", headers=auth).json()
+
+        assert listed[0]["tags"] == []
+
+    def test_untagging_by_target_and_tag(self, client):
+        auth = headers(profile(client))
+        exercise = self.exercise(client, auth)
+        tag = self.tag(client, auth)
+        self.apply(client, auth, exercise, tag)
+
+        removed = client.delete(
+            f"/api/tag-joins?target={exercise['object_id']}&tag={tag['object_id']}",
+            headers=auth,
+        )
+
+        assert removed.status_code == 200, removed.text
+        assert client.get("/api/exercises", headers=auth).json()[0]["tags"] == []
+
+    def test_untagging_something_that_was_never_tagged_is_404(self, client):
+        auth = headers(profile(client))
+        exercise = self.exercise(client, auth)
+        tag = self.tag(client, auth)
+
+        response = client.delete(
+            f"/api/tag-joins?target={exercise['object_id']}&tag={tag['object_id']}",
+            headers=auth,
+        )
+
+        assert response.status_code == 404
+
+    def test_tag_joins_can_be_listed_for_one_target(self, client):
+        auth = headers(profile(client))
+        bench = self.exercise(client, auth, "Bench")
+        squat = self.exercise(client, auth, "Squat")
+        self.apply(client, auth, bench, self.tag(client, auth, "Push"))
+        self.apply(client, auth, squat, self.tag(client, auth, "Legs"))
+
+        listed = client.get(
+            f"/api/tag-joins?target={bench['object_id']}", headers=auth
+        ).json()
+
+        assert len(listed) == 1
+        assert listed[0]["target_id"] == bench["object_id"]
+
+    def test_another_profile_does_not_see_the_tags(self, client):
+        mine = headers(profile(client, "Mine"))
+        theirs = headers(profile(client, "Theirs"))
+        exercise = self.exercise(client, mine)
+        self.apply(client, mine, exercise, self.tag(client, mine, "Push"))
+
+        assert client.get("/api/exercises", headers=theirs).json() == []
+
+    def test_the_workout_page_carries_tags_on_both_lists(self, client):
+        """
+        The add-an-exercise picker filters by tag, so `all_exercises` needs
+        them too -- not just the exercises already in the workout.
+        """
+        auth = headers(profile(client))
+        workout = client.post("/api/workouts", json=make_workout(), headers=auth).json()
+        bench = self.exercise(client, auth, "Bench")
+        squat = self.exercise(client, auth, "Squat")
+        self.apply(client, auth, bench, self.tag(client, auth, "Push"))
+        self.apply(client, auth, squat, self.tag(client, auth, "Legs"))
+
+        client.post(
+            "/api/exercise-joins",
+            json={"workout_id": workout["object_id"], "exercise_id": bench["object_id"]},
+            headers=auth,
+        )
+
+        detail = client.get(
+            f"/api/workouts/{workout['object_id']}/detail", headers=auth
+        ).json()
+
+        assert [t["name"] for t in detail["exercises"][0]["tags"]] == ["Push"]
+
+        all_by_name = {e["name"]: e for e in detail["all_exercises"]}
+        assert [t["name"] for t in all_by_name["Squat"]["tags"]] == ["Legs"]
+
+    def test_deleting_a_profile_removes_its_tags_and_joins(self, client):
+        profile_id = profile(client)
+        auth = headers(profile_id)
+        exercise = self.exercise(client, auth)
+        self.apply(client, auth, exercise, self.tag(client, auth))
+
+        assert client.delete(f"/api/profiles/{profile_id}").status_code == 200
+
+        assert client.get("/api/tags", headers=auth).json() == []
+        assert client.get("/api/tag-joins", headers=auth).json() == []

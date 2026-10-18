@@ -4,6 +4,8 @@
 	import WorkoutInfoComponent from '$lib/hard-components/workout-info.svelte';
 	import NewItem from '$lib/hard-components/new-item.svelte';
 	import { type Exercise, type WorkoutInfo } from '$lib/types';
+	import TagFilter from '$lib/hard-components/tag-filter.svelte';
+	import { filterByTags } from '$lib/tags';
 	import * as Pagination from '$lib/components/ui/pagination';
 	import ChevronLeft from 'lucide-svelte/icons/chevron-left';
 	import ChevronRight from 'lucide-svelte/icons/chevron-right';
@@ -17,8 +19,19 @@
 	let possibleExercises = [...allExercises];
 
 	let search = '';
+	let selectedTagIds: string[] = [];
 
-	$: possibleExercises = allExercises
+	// Every tag in use across the profile's exercises, so the picker only
+	// offers tags that could actually narrow this list.
+	$: filterableTags = [
+		...new Map(
+			allExercises
+				.flatMap((exercise: Exercise) => exercise.tags ?? [])
+				.map((tag) => [tag.objectId, tag])
+		).values()
+	];
+
+	$: possibleExercises = filterByTags(allExercises, selectedTagIds)
 		.filter(
 			(exercise: Exercise) =>
 				exercise.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -37,8 +50,9 @@
 		exercisePage * pageSize
 	);
 
-	$: {
-		console.log(search);
+	// Either control narrows the list, so both have to send it back to a page
+	// that still exists.
+	$: if (search || selectedTagIds) {
 		exercisePage = 1;
 	}
 
@@ -60,6 +74,7 @@
 			exercises.push(exercise);
 			exercises = exercises;
 			search = '';
+			selectedTagIds = [];
 		}
 	};
 
@@ -116,6 +131,7 @@
 	<div>
 		<label for="Search" class="text-left"><b>Search</b></label>
 		<Input placeholder="Name or description" bind:value={search} />
+		<TagFilter tags={filterableTags} bind:selected={selectedTagIds} />
 	</div>
 	<Pagination.Root
 		class="mt-4"
