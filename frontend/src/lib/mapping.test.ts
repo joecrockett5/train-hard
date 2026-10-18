@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+	fromBodyWeight,
 	fromExerciseJoin,
 	fromSet,
 	fromWorkout,
+	toBodyWeight,
 	toExercise,
 	toExerciseJoin,
 	toExerciseWithSets,
@@ -13,7 +15,7 @@ import {
 	type RawExerciseWithSets,
 	type RawWorkout
 } from './mapping';
-import type { RawExerciseJoin, RawSet, RawTag } from './types';
+import type { RawBodyWeight, RawExerciseJoin, RawSet, RawTag } from './types';
 
 const base = {
 	user_id: 'profile-1',
@@ -166,6 +168,40 @@ describe('toExerciseJoin and toTag', () => {
 	});
 });
 
+describe('toBodyWeight', () => {
+	const raw: RawBodyWeight = {
+		...base,
+		object_type: 'BodyWeight',
+		entry_date: '2026-10-17',
+		weight: 80.1,
+		notes: 'morning'
+	};
+
+	it('renames every field', () => {
+		expect(toBodyWeight(raw)).toEqual({
+			userId: 'profile-1',
+			timestamp: '2026-10-17T10:00:00',
+			objectType: 'BodyWeight',
+			objectId: 'object-1',
+			entryDate: '2026-10-17',
+			weight: 80.1,
+			notes: 'morning'
+		});
+	});
+
+	it('carries no unit -- a weigh-in is always kilograms', () => {
+		expect(toBodyWeight(raw)).not.toHaveProperty('weightUnit');
+	});
+
+	it('keeps the weight numeric, so the chart can scale it', () => {
+		expect(typeof toBodyWeight(raw).weight).toBe('number');
+	});
+
+	it('turns absent notes into an empty string', () => {
+		expect(toBodyWeight({ ...raw, notes: null as unknown as string }).notes).toBe('');
+	});
+});
+
 describe('create and update bodies', () => {
 	const workout = {
 		objectId: 'object-1',
@@ -197,6 +233,14 @@ describe('create and update bodies', () => {
 		expect(body).not.toHaveProperty('weightUnit');
 	});
 
+	it('sends a weigh-in date as `entry_date`, with no unit', () => {
+		const body = fromBodyWeight({ entryDate: '2026-10-17', weight: 80.1 });
+
+		expect(body.entry_date).toBe('2026-10-17');
+		expect(body).not.toHaveProperty('unit');
+		expect(body).not.toHaveProperty('object_id');
+	});
+
 	it('maps a join body', () => {
 		expect(fromExerciseJoin({ workoutId: 'w', exerciseId: 'e' })).toEqual({
 			workout_id: 'w',
@@ -206,6 +250,23 @@ describe('create and update bodies', () => {
 });
 
 describe('round trip', () => {
+	it('a weigh-in survives mapping out and back', () => {
+		const raw: RawBodyWeight = {
+			...base,
+			object_type: 'BodyWeight',
+			entry_date: '2026-10-17',
+			weight: 80.1,
+			notes: 'morning'
+		};
+
+		const body = fromBodyWeight(toBodyWeight(raw), { forUpdate: true });
+
+		expect(body.entry_date).toBe(raw.entry_date);
+		expect(body.weight).toBe(raw.weight);
+		expect(body.notes).toBe(raw.notes);
+		expect(body.object_id).toBe(raw.object_id);
+	});
+
 	it('a set survives mapping out and back', () => {
 		const raw: RawSet = {
 			...base,

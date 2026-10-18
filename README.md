@@ -61,6 +61,30 @@ switch-profile option.
 This replaces the Cognito user pool the AWS version used. See
 [infra-legacy/README.md](infra-legacy/README.md) for what was removed.
 
+## Body weight
+
+`/body-weight`, reachable from the nav sheet alongside Workouts and
+Exercises. A weigh-in is a date, a reading in kilograms and optional notes,
+and the page graphs every one of them for the active profile -- date along
+the bottom, weight up the side.
+
+Weights are always kilograms. A `Set` carries a unit because a gym's plates
+may be imperial; a bathroom scale is whatever its owner set it to once, so
+storing a unit per weigh-in would only create the possibility of a graph
+comparing two of them.
+
+The date is logged separately from the row's timestamp, as a workout's is, so
+a weigh-in can be entered days after the fact and still land on the right
+day. Points are spaced by elapsed days rather than evenly, so a gap in the
+record looks like a gap.
+
+The chart is hand-written SVG in
+[frontend/src/lib/weight-chart.ts](frontend/src/lib/weight-chart.ts), which
+keeps the scaling and axis arithmetic out of the component so it can be
+tested directly. No charting library is involved. Its line picks up the
+logo's red-to-orange gradient, via `--chart-from` / `--chart-to` in
+`app.css`.
+
 ## Running it on a server
 
 Behind a reverse proxy (Nginx Proxy Manager, Caddy, Traefik) on your own
@@ -317,8 +341,9 @@ is why selecting a profile is all it takes to scope the data. `ItemSearch`
 exists to fetch an item by `object_id` alone, without knowing its partition.
 
 Object types: `Workout`, `Exercise`, `Set`, `Tag`, `Template`, `ExerciseJoin`,
-`TagJoin`, and `Profile`. Profiles are stored under a reserved `__system__`
-owner so the registry can be listed before a profile has been chosen.
+`TagJoin`, `BodyWeight`, and `Profile`. Profiles are stored under a reserved
+`__system__` owner so the registry can be listed before a profile has been
+chosen.
 
 `infra-legacy/serverless.yml` remains the canonical schema definition;
 `scripts/init_tables.py` mirrors it.

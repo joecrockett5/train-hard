@@ -10,6 +10,7 @@ class ObjectType(Enum):
     SET = "Set"
     TEMPLATE = "Template"
     PROFILE = "Profile"
+    BODY_WEIGHT = "BodyWeight"
 
     # Joins
     TAG_JOIN = "TagJoin"

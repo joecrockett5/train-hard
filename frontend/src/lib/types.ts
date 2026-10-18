@@ -40,6 +40,13 @@ export type Template = Base & {
 	description: string;
 };
 
+/** Always kilograms -- unlike a set, a weigh-in carries no unit. */
+export type BodyWeight = Base & {
+	entryDate: string;
+	weight: number;
+	notes: string;
+};
+
 /**
  * The shapes the backend actually returns, in its own snake_case naming.
  *
@@ -71,4 +78,10 @@ export type RawSet = RawBase & {
 export type RawExerciseJoin = RawBase & {
 	workout_id: string;
 	exercise_id: string;
+};
+
+export type RawBodyWeight = RawBase & {
+	entry_date: string;
+	weight: number;
+	notes: string;
 };

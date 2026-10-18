@@ -271,3 +271,132 @@ class TestWorkoutDetail:
             f"/api/workouts/{workout['object_id']}/detail", headers=theirs
         )
         assert response.status_code == 401
+
+
+class TestBodyWeights:
+
+    @staticmethod
+    def weigh_in(entry_date="2026-10-17", weight=80.1, notes=""):
+        return {
+            "entry_date": entry_date,
+            "weight": weight,
+            "notes": notes,
+        }
+
+    def test_create_read_update_delete(self, client):
+        profile_id = profile(client)
+        auth = headers(profile_id)
+
+        created = client.post(
+            "/api/body-weights", json=self.weigh_in(notes="morning"), headers=auth
+        )
+        assert created.status_code == 201, created.text
+        entry = created.json()
+        assert entry["entry_date"] == "2026-10-17"
+        assert entry["notes"] == "morning"
+        assert entry["user_id"] == profile_id
+
+        fetched = client.get(f"/api/body-weights/{entry['object_id']}", headers=auth)
+        assert fetched.status_code == 200
+        assert fetched.json()["object_id"] == entry["object_id"]
+
+        updated = client.put(
+            f"/api/body-weights/{entry['object_id']}",
+            json={**entry, "weight": 79.6},
+            headers=auth,
+        )
+        assert updated.status_code == 200
+        assert updated.json()["weight"] == 79.6
+
+        assert (
+            client.delete(
+                f"/api/body-weights/{entry['object_id']}", headers=auth
+            ).status_code
+            == 200
+        )
+        assert client.get("/api/body-weights", headers=auth).json() == []
+
+    def test_a_fractional_weight_round_trips(self, client):
+        """
+        The same Decimal conversion a set needs: `Decimal(80.1)` has more
+        significant digits than DynamoDB accepts, so a plain float would 500
+        here rather than storing the number the caller meant.
+        """
+        auth = headers(profile(client))
+
+        created = client.post(
+            "/api/body-weights", json=self.weigh_in(weight=80.1), headers=auth
+        )
+
+        assert created.status_code == 201, created.text
+        assert created.json()["weight"] == 80.1
+
+    def test_the_weight_is_a_json_number_not_a_string(self, client):
+        """The chart scales it arithmetically; a string would sort "9" above "80"."""
+        auth = headers(profile(client))
+        client.post("/api/body-weights", json=self.weigh_in(), headers=auth)
+
+        listed = client.get("/api/body-weights", headers=auth).json()
+
+        assert isinstance(listed[0]["weight"], (int, float))
+
+    def test_notes_are_optional(self, client):
+        auth = headers(profile(client))
+
+        response = client.post(
+            "/api/body-weights",
+            json={"entry_date": "2026-10-17", "weight": 80},
+            headers=auth,
+        )
+
+        assert response.status_code == 201, response.text
+        assert response.json()["notes"] == ""
+
+    def test_a_weigh_in_carries_no_unit(self, client):
+        """Body weight is always kilograms; see `BodyWeight` for why."""
+        auth = headers(profile(client))
+
+        created = client.post(
+            "/api/body-weights", json=self.weigh_in(), headers=auth
+        ).json()
+
+        assert "unit" not in created
+
+    def test_a_missing_entry_is_404(self, client):
+        auth = headers(profile(client))
+
+        response = client.get(
+            "/api/body-weights/00000000-0000-0000-0000-000000000000", headers=auth
+        )
+
+        assert response.status_code == 404
+
+    def test_profiles_do_not_see_each_others_weigh_ins(self, client):
+        mine = headers(profile(client, "Mine"))
+        theirs = headers(profile(client, "Theirs"))
+
+        created = client.post(
+            "/api/body-weights", json=self.weigh_in(), headers=mine
+        ).json()
+
+        assert len(client.get("/api/body-weights", headers=mine).json()) == 1
+        assert client.get("/api/body-weights", headers=theirs).json() == []
+        assert (
+            client.get(
+                f"/api/body-weights/{created['object_id']}", headers=theirs
+            ).status_code
+            == 401
+        )
+
+    def test_deleting_a_profile_removes_its_weigh_ins(self, client):
+        """
+        `delete_profile_data` walks every object type, so a new one is only
+        covered if it is in the enum. This is the check that it is.
+        """
+        profile_id = profile(client)
+        auth = headers(profile_id)
+        client.post("/api/body-weights", json=self.weigh_in(), headers=auth)
+
+        assert client.delete(f"/api/profiles/{profile_id}").status_code == 200
+
+        assert client.get("/api/body-weights", headers=auth).json() == []

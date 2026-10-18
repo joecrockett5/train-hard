@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 from starlette.requests import Request
 
 from hard.app.routes import (
+    body_weights,
     exercise_joins,
     exercises,
     profiles,
@@ -32,6 +33,7 @@ api.include_router(exercise_joins.router)
 api.include_router(tag_joins.router)
 api.include_router(templates.router)
 api.include_router(profiles.router)
+api.include_router(body_weights.router)
 
 
 @api.get("/user", response_model=User)

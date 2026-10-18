@@ -9,7 +9,9 @@
  */
 
 import type {
+	BodyWeight,
 	Exercise,
+	RawBodyWeight,
 	RawExerciseJoin,
 	RawSet,
 	RawTag,
@@ -131,6 +133,18 @@ export function toTag(raw: RawTag): Tag {
 	};
 }
 
+export function toBodyWeight(raw: RawBodyWeight): BodyWeight {
+	return {
+		userId: raw.user_id,
+		timestamp: raw.timestamp,
+		objectType: raw.object_type,
+		objectId: raw.object_id,
+		entryDate: raw.entry_date,
+		weight: raw.weight,
+		notes: raw.notes ?? ''
+	};
+}
+
 export function toTemplate(raw: RawTemplate): Template {
 	return {
 		userId: raw.user_id,
@@ -182,6 +196,15 @@ export function fromExerciseJoin(body: { workoutId?: string; exerciseId?: string
 	return {
 		workout_id: body.workoutId,
 		exercise_id: body.exerciseId
+	};
+}
+
+export function fromBodyWeight(body: Partial<BodyWeight>, { forUpdate = false } = {}) {
+	return {
+		...(forUpdate ? { timestamp: body.timestamp, object_id: body.objectId } : {}),
+		entry_date: body.entryDate,
+		weight: body.weight,
+		notes: body.notes ?? ''
 	};
 }
 

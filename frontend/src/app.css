@@ -33,6 +33,9 @@
 
 		--ring: 222.2 84% 4.9%;
 
+		--chart-from: 0 100% 59.6%;
+		--chart-to: 22.9 100% 65.1%;
+
 		--radius: 0.5rem;
 	}
 
@@ -65,6 +68,9 @@
 		--destructive-foreground: 210 40% 98%;
 
 		--ring: hsl(212.7, 26.8%, 83.9);
+
+		--chart-from: 0 100% 59.6%;
+		--chart-to: 22.9 100% 65.1%;
 	}
 }
 

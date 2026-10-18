@@ -47,6 +47,11 @@ const config = {
 				card: {
 					DEFAULT: 'hsl(var(--card) / <alpha-value>)',
 					foreground: 'hsl(var(--card-foreground) / <alpha-value>)'
+				},
+				// The logo's gradient, for the body weight graph.
+				chart: {
+					from: 'hsl(var(--chart-from) / <alpha-value>)',
+					to: 'hsl(var(--chart-to) / <alpha-value>)'
 				}
 			},
 			borderRadius: {
