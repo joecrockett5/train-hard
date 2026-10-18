@@ -87,13 +87,16 @@
 
 <Dialog.Root bind:open>
 	<!--
-		`secondary`, not the default variant: that one inverts against the
-		background, and in this app it is only ever used for the small confirm
-		button inside a dialog. Every full-width surface -- the nav sheet's
-		buttons, the new-item triggers -- stays with the theme, and at this
-		size the inverted one read as a different app.
+		The same treatment as the "New Workout" and "New Exercise" triggers
+		that `NewItem` renders: `outline` sits at the page background with a
+		border and lifts to the accent on hover, rather than the default
+		variant, which inverts and is only ever a small confirm button inside
+		a dialog here. Taller and at text-base because this one is the point
+		of the screen; the colours are NewItem's.
 	-->
-	<Dialog.Trigger class={buttonVariants({ variant: 'secondary' }) + ' mt-4 h-16 w-full text-base'}>
+	<Dialog.Trigger
+		class={buttonVariants({ variant: 'outline' }) + ' mt-4 h-16 w-full text-base text-gray-400'}
+	>
 		<Plus class="mr-2 h-5 w-5" />
 		Start today's workout
 	</Dialog.Trigger>
