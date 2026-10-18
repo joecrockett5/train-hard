@@ -86,7 +86,14 @@
 {/if}
 
 <Dialog.Root bind:open>
-	<Dialog.Trigger class={buttonVariants() + ' mt-4 h-16 w-full text-base'}>
+	<!--
+		`secondary`, not the default variant: that one inverts against the
+		background, and in this app it is only ever used for the small confirm
+		button inside a dialog. Every full-width surface -- the nav sheet's
+		buttons, the new-item triggers -- stays with the theme, and at this
+		size the inverted one read as a different app.
+	-->
+	<Dialog.Trigger class={buttonVariants({ variant: 'secondary' }) + ' mt-4 h-16 w-full text-base'}>
 		<Plus class="mr-2 h-5 w-5" />
 		Start today's workout
 	</Dialog.Trigger>
