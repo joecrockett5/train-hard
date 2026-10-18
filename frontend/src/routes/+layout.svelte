@@ -42,7 +42,7 @@
 				size="icon"
 				class="from-chart-from to-chart-to fixed right-4 bottom-4 z-50 h-14 w-14 rounded-xl bg-gradient-to-r text-white hover:opacity-90"
 			>
-				<MenuIcon class="h-7 w-7" />
+				<MenuIcon class="h-14 w-14" />
 			</Button>
 		</Sheet.Trigger>
 		<Sheet.Content side="bottom">

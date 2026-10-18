@@ -6,8 +6,13 @@
 	 * was named for neither what it is nor what it depicts. The shape and
 	 * colour now belong to the button, so this is only the mark, in
 	 * `currentColor`, sized by the caller.
+	 *
+	 * The mark fills about half its box -- that spacing was the gap between
+	 * the bars and the old disc, and it is what keeps the glyph from reaching
+	 * the button's edges. So the size given here is the box, not the mark:
+	 * h-14 renders bars roughly 28px across.
 	 */
-	let className: string = 'h-7 w-7';
+	let className: string = 'h-14 w-14';
 	export { className as class };
 </script>
 
