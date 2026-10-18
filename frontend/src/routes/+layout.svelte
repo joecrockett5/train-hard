@@ -2,13 +2,78 @@
 	import '../app.css';
 
 	import { browser } from '$app/environment';
+	import { afterNavigate } from '$app/navigation';
 	import * as Sheet from '$lib/components/ui/sheet/index.js';
 	import { ScrollArea } from '$lib/components/ui/scroll-area/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import MenuIcon from '$lib/svg/menu-icon.svelte';
 	import ThemeToggle from '$lib/hard-components/theme-toggle.svelte';
+	import type { WorkoutInfo } from '$lib/types';
 
 	export let data;
+
+	/**
+	 * Every screen opens at the top.
+	 *
+	 * SvelteKit already does this for a plain link, but not for back and
+	 * forward, where it restores the old position, and not for a `goto` to
+	 * the route you are already on -- which is how the workout page reloads
+	 * itself after a set is deleted, landing you mid-page.
+	 */
+	afterNavigate(() => {
+		window.scrollTo(0, 0);
+	});
+
+	let sheetOpen = false;
+	let recent: WorkoutInfo[] = [];
+	let loadedRecent = false;
+
+	/**
+	 * The last couple of workouts, for getting back into one.
+	 *
+	 * Fetched when the sheet is first opened rather than in the layout's
+	 * load: the sheet is opened occasionally, and the alternative is listing
+	 * every workout on every page render.
+	 */
+	async function loadRecent() {
+		if (loadedRecent) {
+			return;
+		}
+		loadedRecent = true;
+
+		try {
+			const response = await fetch('/api/workouts');
+
+			if (!response.ok) {
+				throw new Error(`Backend returned ${response.status}`);
+			}
+
+			const workouts: WorkoutInfo[] = await response.json();
+			recent = workouts
+				.sort(
+					(a, b) =>
+						b.workoutDate.localeCompare(a.workoutDate) ||
+						(b.timestamp ?? '').localeCompare(a.timestamp ?? '')
+				)
+				.slice(0, 2);
+		} catch (error) {
+			console.error('Failed to load recent workouts: ', error);
+			// Let the next open try again rather than leaving the section empty.
+			loadedRecent = false;
+		}
+	}
+
+	$: if (sheetOpen) {
+		loadRecent();
+	}
+
+	function shortDate(isoDate: string): string {
+		return new Date(`${isoDate}T00:00:00Z`).toLocaleDateString('en-GB', {
+			day: 'numeric',
+			month: 'short',
+			timeZone: 'UTC'
+		});
+	}
 
 	/**
 	 * Keeps the theme class in step with the active profile.
@@ -29,7 +94,7 @@
 </script>
 
 {#if data.profile}
-	<Sheet.Root>
+	<Sheet.Root bind:open={sheetOpen}>
 		<Sheet.Trigger asChild let:builder>
 			<!--
 				The logo's own ramp, via the `--chart-*` tokens, on a rounded
@@ -63,7 +128,26 @@
 					</div>
 				</div>
 			</Sheet.Close>
-			<div class="flex items-center gap-2">
+			{#if recent.length > 0}
+				<Sheet.Close class="w-full">
+					<div class="border-border border-t pt-3 pb-1">
+						<p class="text-muted-foreground mb-2 text-left text-xs font-semibold">Recent</p>
+						<div class="grid gap-2">
+							{#each recent as workout (workout.objectId)}
+								<Button
+									href="/workouts/{workout.objectId}"
+									variant="outline"
+									class="w-full justify-between text-gray-400"
+								>
+									<span class="truncate">{workout.title}</span>
+									<span class="ml-2 shrink-0 text-xs">{shortDate(workout.workoutDate)}</span>
+								</Button>
+							{/each}
+						</div>
+					</div>
+				</Sheet.Close>
+			{/if}
+			<div class="mt-3 flex items-center gap-2">
 				<form method="POST" action="/profiles?/switch" class="flex-1">
 					<Button type="submit" variant="ghost" class="w-full">
 						{data.profile.name} · Switch profile
