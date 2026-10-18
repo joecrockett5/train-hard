@@ -8,14 +8,17 @@
 	import { type Exercise, type Tag } from '$lib/types';
 	import Pager, { PAGE_SIZE } from '$lib/hard-components/pager.svelte';
 	import TagFilter from '$lib/hard-components/tag-filter.svelte';
+	import TagPicker from '$lib/hard-components/tag-picker.svelte';
 	import { filterByTags } from '$lib/tags';
 
 	export let data;
 
 	let page = 1;
 
-	let exercises: Exercise[] = data.exercises.sort((a: Exercise, b: Exercise) =>
-		a.name.localeCompare(b.name)
+	// Newest first: the exercise you just made is the one you are looking for.
+	let exercises: Exercise[] = data.exercises.sort(
+		(a: Exercise, b: Exercise) =>
+			new Date(b.timestamp ?? 0).getTime() - new Date(a.timestamp ?? 0).getTime()
 	);
 	let allTags: Tag[] = data.tags;
 	let selectedTagIds: string[] = [];
@@ -32,6 +35,7 @@
 
 	let newExerciseName = '';
 	let newExerciseDescription = '';
+	let newExerciseTags: Tag[] = [];
 
 	async function addExercise() {
 		if (newExerciseName) {
@@ -53,7 +57,27 @@
 			newExerciseDescription = '';
 
 			const createdExercise: Exercise = await response.json();
-			exercises = [...exercises, createdExercise];
+
+			// The joins can only be written once the exercise has an id, so
+			// the picker above only collected the choice.
+			const applied: Tag[] = [];
+			for (const tag of newExerciseTags) {
+				const join = await fetch('/api/tag-joins', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ targetId: createdExercise.objectId, tagId: tag.objectId })
+				});
+
+				if (join.ok) {
+					applied.push(tag);
+				} else {
+					console.error(`Failed to tag '${createdExercise.name}' with '${tag.name}'`);
+				}
+			}
+
+			createdExercise.tags = applied;
+			newExerciseTags = [];
+			exercises = [createdExercise, ...exercises];
 		}
 	}
 
@@ -94,7 +118,8 @@
 	<label for="name">Name</label>
 	<Input placeholder="Name" bind:value={newExerciseName} />
 	<label for="description">Description</label>
-	<Input placeholder="Description" bind:value={newExerciseDescription} />
+	<Input placeholder="Description" bind:value={newExerciseDescription} class="mb-4" />
+	<TagPicker bind:allTags bind:selected={newExerciseTags} />
 	<br />
 	<Dialog.Footer>
 		<Dialog.Close class={buttonVariants({ variant: 'default' })} on:click={addExercise}

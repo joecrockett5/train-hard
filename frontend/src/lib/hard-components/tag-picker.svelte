@@ -9,8 +9,12 @@
 	export let allTags: Tag[] = [];
 	/** The tags on this exercise. Bound, so the caller sees toggles. */
 	export let selected: Tag[] = [];
-	/** What is being tagged. */
-	export let targetId: string;
+	/**
+	 * What is being tagged. Empty while creating something that does not
+	 * exist yet: the picker then only tracks the selection, and the caller
+	 * writes the joins once it has an id.
+	 */
+	export let targetId: string = '';
 
 	let newName = '';
 	let busy = false;
@@ -33,6 +37,11 @@
 		selected = wasSelected
 			? selected.filter((t) => t.objectId !== tag.objectId)
 			: [...selected, tag];
+
+		if (!targetId) {
+			busy = false;
+			return;
+		}
 
 		try {
 			const response = wasSelected
