@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import type { Exercise, WorkoutInfo } from '$lib/types';
+import type { Exercise, Tag, WorkoutInfo } from '$lib/types';
 import type { PageServerLoad } from './$types';
 
 type DetailResponse = {
@@ -9,13 +9,20 @@ type DetailResponse = {
 };
 
 export const load = (async ({ fetch, params }) => {
-	// One request. This used to be three, plus one per exercise for its sets,
-	// each of which became one or two further backend calls.
-	const response = await fetch(`/api/workouts/${params.workoutId}/detail`);
+	// One request for the page. This used to be three, plus one per exercise
+	// for its sets, each of which became one or two further backend calls.
+	// The tags are a second: the exercises carry their own, but creating one
+	// from the picker has to offer every tag, including unused ones.
+	const [response, tagsResponse] = await Promise.all([
+		fetch(`/api/workouts/${params.workoutId}/detail`),
+		fetch('/api/tags')
+	]);
 
 	if (!response.ok) {
 		error(response.status, `Could not load workout ${params.workoutId}`);
 	}
+
+	const tags: Tag[] = tagsResponse.ok ? await tagsResponse.json() : [];
 
 	const { workoutInfo, exercises, allExercises }: DetailResponse = await response.json();
 
@@ -37,5 +44,5 @@ export const load = (async ({ fetch, params }) => {
 		);
 	});
 
-	return { workoutInfo, exercises, allExercises };
+	return { workoutInfo, exercises, allExercises, tags };
 }) satisfies PageServerLoad;

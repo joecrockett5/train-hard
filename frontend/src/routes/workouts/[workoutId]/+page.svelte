@@ -3,12 +3,11 @@
 	import ExerciseInfoComponent from '$lib/hard-components/exercise-info.svelte';
 	import WorkoutInfoComponent from '$lib/hard-components/workout-info.svelte';
 	import NewItem from '$lib/hard-components/new-item.svelte';
-	import { type Exercise, type WorkoutInfo } from '$lib/types';
+	import { type Exercise, type Tag, type WorkoutInfo } from '$lib/types';
 	import TagFilter from '$lib/hard-components/tag-filter.svelte';
 	import { filterByTags } from '$lib/tags';
 	import Pager, { PAGE_SIZE } from '$lib/hard-components/pager.svelte';
-	import Plus from 'lucide-svelte/icons/plus';
-	import { Button } from '$lib/components/ui/button';
+	import NewExercise from '$lib/hard-components/new-exercise.svelte';
 	import Input from '$lib/components/ui/input/input.svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { goto } from '$app/navigation';
@@ -16,6 +15,7 @@
 	export let data;
 
 	let { exercises, workoutInfo, allExercises } = data;
+	let allTags: Tag[] = data.tags;
 	let possibleExercises = [...allExercises];
 
 	let search = '';
@@ -49,41 +49,20 @@
 		exercisePage * PAGE_SIZE
 	);
 
-	// Offered when the search finds nothing: mid-workout, the reason an
-	// exercise is missing is usually that it has never been done before, and
-	// leaving for the exercises page to make it loses your place.
-	$: canCreate = search.trim().length > 0 && possibleExercises.length === 0;
-	let creating = false;
+	let pickerOpen = false;
 
-	async function createAndAdd() {
-		const name = search.trim();
-
-		if (!name || creating) {
-			return;
-		}
-		creating = true;
-
-		try {
-			const response = await fetch('/api/exercises', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ name, description: '' })
-			});
-
-			if (!response.ok) {
-				throw new Error(`Backend returned ${response.status}`);
-			}
-
-			const created: Exercise = await response.json();
-			// Into the picker's own source list too, so removing it from the
-			// workout later offers it again without a reload.
-			allExercises = [...allExercises, created];
-			await addExercise(created);
-		} catch (error) {
-			console.error(`Failed to create exercise '${name}': `, error);
-		} finally {
-			creating = false;
-		}
+	/**
+	 * A new exercise goes straight into this workout.
+	 *
+	 * Also into the picker's own source list, so that removing it from the
+	 * workout later offers it again without a reload. The picker then closes:
+	 * picking an existing exercise closes it, and having just made one you
+	 * want to be back at the workout logging sets.
+	 */
+	async function createdExercise(exercise: Exercise) {
+		allExercises = [...allExercises, exercise];
+		await addExercise(exercise);
+		pickerOpen = false;
 	}
 
 	// Either control narrows the list, so both have to send it back to a page
@@ -163,11 +142,18 @@
 	item="Exercise"
 	description={`Add an exercise to “${workoutInfo.title}”`}
 	className="h-4/5"
+	bind:open={pickerOpen}
 >
 	<div>
 		<label for="Search" class="text-left"><b>Search</b></label>
 		<Input placeholder="Name or description" bind:value={search} />
 		<TagFilter tags={filterableTags} bind:selected={selectedTagIds} />
+		<!--
+			Always offered, rather than only when the search finds nothing: an
+			exercise can be missing while its name still half-matches
+			something else, and then the offer never appeared.
+		-->
+		<NewExercise bind:allTags onCreated={createdExercise} label="New Exercise" />
 	</div>
 	<Pager count={possibleExercises.length} bind:page={exercisePage} />
 
@@ -176,15 +162,6 @@
 			<ExerciseInfoComponent exercise={possibleExercise} brief />
 		</Dialog.Close>
 	{/each}
-
-	{#if canCreate}
-		<Dialog.Close class="w-full" on:click={createAndAdd}>
-			<Button variant="outline" class="mt-4 w-full justify-start text-left" disabled={creating}>
-				<Plus class="mr-2 h-4 w-4 shrink-0" />
-				Create “{search.trim()}” and add it
-			</Button>
-		</Dialog.Close>
-	{/if}
 </NewItem>
 
 {#each exercises as exercise}

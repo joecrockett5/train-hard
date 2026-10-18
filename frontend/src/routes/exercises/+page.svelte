@@ -1,14 +1,10 @@
 <script lang="ts">
 	import * as Card from '$lib/components/ui/card';
 	import ExerciseInfoComponent from '$lib/hard-components/exercise-info.svelte';
-	import NewItem from '$lib/hard-components/new-item.svelte';
-	import Input from '$lib/components/ui/input/input.svelte';
-	import { buttonVariants } from '$lib/components/ui/button';
-	import * as Dialog from '$lib/components/ui/dialog';
+	import NewExercise from '$lib/hard-components/new-exercise.svelte';
 	import { type Exercise, type Tag } from '$lib/types';
 	import Pager, { PAGE_SIZE } from '$lib/hard-components/pager.svelte';
 	import TagFilter from '$lib/hard-components/tag-filter.svelte';
-	import TagPicker from '$lib/hard-components/tag-picker.svelte';
 	import { filterByTags } from '$lib/tags';
 
 	export let data;
@@ -32,54 +28,6 @@
 	}
 
 	$: viewableExercises = matching.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
-	let newExerciseName = '';
-	let newExerciseDescription = '';
-	let newExerciseTags: Tag[] = [];
-
-	async function addExercise() {
-		if (newExerciseName) {
-			console.log(`adding exercise: ${newExerciseName}`);
-			const response = await fetch(`/api/exercises`, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					name: newExerciseName,
-					description: newExerciseDescription
-				})
-			});
-			if (!response.ok) {
-				console.log(`Unable to create exercise '${newExerciseName}'`);
-			}
-			newExerciseName = '';
-			newExerciseDescription = '';
-
-			const createdExercise: Exercise = await response.json();
-
-			// The joins can only be written once the exercise has an id, so
-			// the picker above only collected the choice.
-			const applied: Tag[] = [];
-			for (const tag of newExerciseTags) {
-				const join = await fetch('/api/tag-joins', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ targetId: createdExercise.objectId, tagId: tag.objectId })
-				});
-
-				if (join.ok) {
-					applied.push(tag);
-				} else {
-					console.error(`Failed to tag '${createdExercise.name}' with '${tag.name}'`);
-				}
-			}
-
-			createdExercise.tags = applied;
-			newExerciseTags = [];
-			exercises = [createdExercise, ...exercises];
-		}
-	}
 
 	async function deleteExercise(exercise: Exercise) {
 		const response = await fetch(`/api/exercises/${exercise.objectId}`, {
@@ -114,19 +62,12 @@
 	</Card.Content>
 </Card.Root>
 
-<NewItem item="Exercise">
-	<label for="name">Name</label>
-	<Input placeholder="Name" bind:value={newExerciseName} />
-	<label for="description">Description</label>
-	<Input placeholder="Description" bind:value={newExerciseDescription} class="mb-4" />
-	<TagPicker bind:allTags bind:selected={newExerciseTags} />
-	<br />
-	<Dialog.Footer>
-		<Dialog.Close class={buttonVariants({ variant: 'default' })} on:click={addExercise}
-			>Add</Dialog.Close
-		>
-	</Dialog.Footer>
-</NewItem>
+<NewExercise
+	bind:allTags
+	onCreated={(exercise) => {
+		exercises = [exercise, ...exercises];
+	}}
+/>
 
 <Pager count={matching.length} bind:page />
 

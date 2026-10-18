@@ -6,9 +6,11 @@
 	export let item: string = 'Item';
 	export let description: string = '';
 	export let className: string = '';
+	/** Bindable, for a caller that needs to close this once its work is done. */
+	export let open: boolean = false;
 </script>
 
-<Dialog.Root>
+<Dialog.Root bind:open>
 	<Dialog.Trigger class={buttonVariants({ variant: 'outline' }) + ' w-full text-gray-400 mt-1'}>
 		<Plus />
 		New {item}
