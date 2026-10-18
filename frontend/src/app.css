@@ -33,6 +33,11 @@
 
 		--ring: 222.2 84% 4.9%;
 
+		/*
+		 * The brand ramp, sampled from the logo: #ff3131 -> #ff914d. Used by
+		 * the weight graph's line and the nav button. Repeated unchanged under
+		 * .dark -- it is the brand, not a surface that follows the background.
+		 */
 		--chart-from: 0 100% 59.6%;
 		--chart-to: 22.9 100% 65.1%;
 

@@ -5,7 +5,7 @@
 	import * as Sheet from '$lib/components/ui/sheet/index.js';
 	import { ScrollArea } from '$lib/components/ui/scroll-area/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import RedPlus from '$lib/svg/red-plus.svelte';
+	import MenuIcon from '$lib/svg/menu-icon.svelte';
 	import ThemeToggle from '$lib/hard-components/theme-toggle.svelte';
 
 	export let data;
@@ -31,8 +31,18 @@
 {#if data.profile}
 	<Sheet.Root>
 		<Sheet.Trigger asChild let:builder>
-			<Button builders={[builder]} variant="ghost" size="icon" class="fixed right-4 bottom-4 z-50">
-				<RedPlus />
+			<!--
+				The logo's own ramp, via the `--chart-*` tokens, on a rounded
+				square: at this size it reads as a small version of the mark
+				rather than an unrelated button.
+			-->
+			<Button
+				builders={[builder]}
+				variant="ghost"
+				size="icon"
+				class="from-chart-from to-chart-to fixed right-4 bottom-4 z-50 h-14 w-14 rounded-xl bg-gradient-to-r text-white hover:opacity-90"
+			>
+				<MenuIcon class="h-7 w-7" />
 			</Button>
 		</Sheet.Trigger>
 		<Sheet.Content side="bottom">

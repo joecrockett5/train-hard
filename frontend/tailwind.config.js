@@ -48,7 +48,7 @@ const config = {
 					DEFAULT: 'hsl(var(--card) / <alpha-value>)',
 					foreground: 'hsl(var(--card-foreground) / <alpha-value>)'
 				},
-				// The logo's gradient, for the body weight graph.
+				// The logo's gradient: the weight graph's line and the nav button.
 				chart: {
 					from: 'hsl(var(--chart-from) / <alpha-value>)',
 					to: 'hsl(var(--chart-to) / <alpha-value>)'
