@@ -14,9 +14,23 @@
 
 	export let data;
 
-	let { exercises, workoutInfo, allExercises } = data;
-	let allTags: Tag[] = data.tags;
-	let possibleExercises = [...allExercises];
+	let exercises: Exercise[];
+	let workoutInfo: WorkoutInfo;
+	let allExercises: Exercise[];
+	let allTags: Tag[];
+
+	/**
+	 * Reassigned whenever the load runs, not destructured once.
+	 *
+	 * Moving between two workouts is a navigation within the same route, so
+	 * this component is reused rather than rebuilt. Taking the data apart in
+	 * a plain `let` captured the first workout and never let go, which is why
+	 * the quick switcher needed a manual reload to show the one you picked.
+	 */
+	$: ({ workoutInfo, allExercises, tags: allTags } = data);
+	$: exercises = data.exercises;
+
+	let possibleExercises: Exercise[] = [];
 
 	let search = '';
 	let selectedTagIds: string[] = [];
@@ -124,8 +138,11 @@
 		}
 	}
 
-	const asDate = new Date(workoutInfo.workoutDate);
-	const formattedDate = asDate.toLocaleDateString('en-GB', {
+	// Reactive, not computed once: `workoutInfo` is now assigned by the
+	// reactive block above, which runs after the instance body, so reading it
+	// here at init saw undefined -- and it has to follow the workout anyway
+	// when the quick switcher moves between two.
+	$: formattedDate = new Date(workoutInfo.workoutDate).toLocaleDateString('en-GB', {
 		day: 'numeric',
 		month: 'long',
 		year: 'numeric'
@@ -164,7 +181,13 @@
 	{/each}
 </NewItem>
 
-{#each exercises as exercise}
+<!--
+	Keyed by the join, not the exercise: `ExerciseComponent` splits its sets
+	into warm-up and working once, when it is created, so a reused instance
+	would keep the previous workout's sets. The same exercise can appear in
+	two workouts, so its own id is not enough to tell those apart.
+-->
+{#each exercises as exercise (exercise.joinId ?? exercise.objectId)}
 	<ExerciseComponent
 		{exercise}
 		workoutId={workoutInfo.objectId ?? ''}
