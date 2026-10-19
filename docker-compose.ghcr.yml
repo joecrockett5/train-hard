@@ -1,6 +1,12 @@
 # Run the published images instead of building locally.
 #
-#   IMAGE_REPO=ghcr.io/<owner>/<repo> \
+#   docker compose -f docker-compose.yml -f docker-compose.ghcr.yml up -d
+#
+# IMAGE_REPO defaults to this project's own packages, so a clone needs no
+# configuration to run the published build. Point it somewhere else to run
+# your own fork's images:
+#
+#   IMAGE_REPO=ghcr.io/you/your-fork \
 #     docker compose -f docker-compose.yml -f docker-compose.ghcr.yml up -d
 #
 # IMAGE_TAG picks which build, and which language:
@@ -19,19 +25,19 @@
 
 services:
   dynamodb-init:
-    image: ${IMAGE_REPO:?set IMAGE_REPO, e.g. ghcr.io/you/train-hard}/backend:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REPO:-ghcr.io/joecrockett5/train-hard}/backend:${IMAGE_TAG:-latest}
     build: !reset null
     labels:
       com.centurylinklabs.watchtower.enable: "true"
 
   backend:
-    image: ${IMAGE_REPO:?set IMAGE_REPO, e.g. ghcr.io/you/train-hard}/backend:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REPO:-ghcr.io/joecrockett5/train-hard}/backend:${IMAGE_TAG:-latest}
     build: !reset null
     labels:
       com.centurylinklabs.watchtower.enable: "true"
 
   frontend:
-    image: ${IMAGE_REPO:?set IMAGE_REPO, e.g. ghcr.io/you/train-hard}/frontend:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REPO:-ghcr.io/joecrockett5/train-hard}/frontend:${IMAGE_TAG:-latest}
     build: !reset null
     labels:
       com.centurylinklabs.watchtower.enable: "true"
