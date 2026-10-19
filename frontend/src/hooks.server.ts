@@ -1,8 +1,14 @@
 import { redirect, type Handle } from '@sveltejs/kit';
 import { PROFILE_COOKIE, THEME_COOKIE } from '$lib/server/profile';
 
-/** Routes reachable without a profile selected. */
-const UNGATED = ['/profiles'];
+/**
+ * Routes reachable without a profile selected.
+ *
+ * `/diagnostics` is here because the thing it diagnoses -- the origin the
+ * CSRF check uses -- is what stops the profile picker working, so it has to
+ * answer before a profile exists.
+ */
+const UNGATED = ['/profiles', '/diagnostics'];
 
 /** Anything with a file extension is an asset request, not an app route. */
 const ASSET_PATH = /\.[a-z0-9]+$/i;

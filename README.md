@@ -485,6 +485,19 @@ It needs the `/api` suffix and must use the service name `backend`, not
 **403 "Cross-site POST form submissions are forbidden".** The origin the
 server believes it is serving does not match the one the browser sent.
 
+Ask it, rather than guessing -- through the proxy, exactly as a browser
+reaches it:
+
+```bash
+curl -s https://your.domain/diagnostics/origin | python3 -m json.tool
+```
+
+`resolvedOrigin` is what the CSRF check compares against. If it reads
+`https://undefined`, `HOST_HEADER` names a header the proxy does not send:
+`hostHeaderValue` is null and `headersReceived` shows which ones did arrive.
+If it is right but `sentOrigin` differs, the browser is reaching the app by
+a different name or scheme than the proxy is passing on.
+
 With `ORIGIN` set, it must be exactly the scheme, host and port in the
 address bar -- so one fixed value can serve http:// or https://, never both.
 Behind a reverse proxy, blank it instead:
