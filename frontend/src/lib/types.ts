@@ -17,9 +17,12 @@ export type TagJoin = Base & {
 
 export type Set = Base & {
 	setType: 'working' | 'warmup';
+	/** Always kilograms. The profile's unit only changes how it is shown. */
 	weight: number;
 	weightUnit: 'kg' | 'lbs';
 	reps: number;
+	/** Minutes, for a set under a timed exercise. */
+	duration: number;
 	notes: string;
 	exerciseJoinId: string;
 };
@@ -27,6 +30,8 @@ export type Set = Base & {
 export type Exercise = Base & {
 	name: string;
 	description: string;
+	/** `time` records durations instead of reps at a weight. */
+	kind: 'reps' | 'time';
 	sets?: Set[];
 	joinId?: string;
 	workoutId?: string;
@@ -76,6 +81,7 @@ export type RawSet = RawBase & {
 	weight: number;
 	unit: 'kg' | 'lbs';
 	reps: number;
+	duration?: number;
 	notes: string;
 	exercise_join_id: string;
 };

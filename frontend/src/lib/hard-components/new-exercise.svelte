@@ -23,6 +23,8 @@
 	let open = false;
 	let name = '';
 	let description = '';
+	/** Reps by default; the toggle below switches to timed intervals. */
+	let kind: 'reps' | 'time' = 'reps';
 	let tags: Tag[] = [];
 	let saving = false;
 	let failed = false;
@@ -40,7 +42,7 @@
 			const response = await fetch('/api/exercises', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ name: trimmed, description: description.trim() })
+				body: JSON.stringify({ name: trimmed, description: description.trim(), kind })
 			});
 
 			if (!response.ok) {
@@ -75,6 +77,7 @@
 			open = false;
 			name = '';
 			description = '';
+			kind = 'reps';
 			tags = [];
 		} catch (error) {
 			console.error(`Failed to create exercise '${trimmed}': `, error);
@@ -102,6 +105,33 @@
 		/>
 		<label for="description">Description</label>
 		<Input placeholder="Description" bind:value={description} class="mb-4" />
+
+		<!--
+			Two buttons rather than a switch: the two options need naming, and
+			"Reps" / "Time" says more than a toggle labelled "cardio" would.
+		-->
+		<span class="text-sm font-semibold">Measured in</span>
+		<div class="mb-4 flex gap-2">
+			<Button
+				type="button"
+				variant={kind === 'reps' ? 'secondary' : 'outline'}
+				class="flex-1"
+				aria-pressed={kind === 'reps'}
+				on:click={() => (kind = 'reps')}
+			>
+				Reps
+			</Button>
+			<Button
+				type="button"
+				variant={kind === 'time' ? 'secondary' : 'outline'}
+				class="flex-1"
+				aria-pressed={kind === 'time'}
+				on:click={() => (kind = 'time')}
+			>
+				Time
+			</Button>
+		</div>
+
 		<TagPicker bind:allTags bind:selected={tags} />
 		{#if failed}
 			<p class="text-destructive text-sm">Could not create the exercise. Try again.</p>

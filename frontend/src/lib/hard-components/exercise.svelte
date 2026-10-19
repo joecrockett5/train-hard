@@ -15,6 +15,7 @@
 	import * as Popover from '$lib/components/ui/popover/index.js';
 	import { summariseSets } from '$lib/sets';
 	import { sortTags } from '$lib/tags';
+	import { toStoredWeight, weightUnit } from '$lib/units';
 
 	export let exercise: Exercise;
 	export let workoutId: string;
@@ -33,12 +34,17 @@
 		});
 	}
 
+	/** A timed exercise logs durations in minutes rather than reps at a weight. */
+	$: timed = exercise.kind === 'time';
+
 	let warmupSetWeight: number | undefined = undefined;
 	let warmupSetReps: number | undefined = undefined;
+	let warmupSetDuration: number | undefined = undefined;
 	let warmupSetNotes = '';
 
 	let workingSetWeight: number | undefined = undefined;
 	let workingSetReps: number | undefined = undefined;
+	let workingSetDuration: number | undefined = undefined;
 	let workingSetNotes = '';
 
 	const lastWorkingSet = workingSets.at(-1);
@@ -63,9 +69,11 @@
 			},
 			body: JSON.stringify({
 				setType: 'warmup',
-				weight: warmupSetWeight,
+				// Typed in the unit on screen, stored in kilograms.
+				weight: toStoredWeight(Number(warmupSetWeight ?? 0), $weightUnit),
 				weightUnit: 'kg',
-				reps: warmupSetReps,
+				reps: warmupSetReps ?? 0,
+				duration: warmupSetDuration ?? 0,
 				notes: warmupSetNotes,
 				exerciseJoinId: join.objectId
 			})
@@ -78,6 +86,7 @@
 
 			warmupSetWeight = undefined;
 			warmupSetReps = undefined;
+			warmupSetDuration = undefined;
 			warmupSetNotes = '';
 		} else {
 			console.log('Error creating warmup set');
@@ -98,9 +107,10 @@
 			},
 			body: JSON.stringify({
 				setType: 'working',
-				weight: workingSetWeight,
+				weight: toStoredWeight(Number(workingSetWeight ?? 0), $weightUnit),
 				weightUnit: 'kg',
-				reps: workingSetReps,
+				reps: workingSetReps ?? 0,
+				duration: workingSetDuration ?? 0,
 				notes: workingSetNotes,
 				exerciseJoinId: join.objectId
 			})
@@ -113,6 +123,7 @@
 
 			// workingSetWeight = 0;
 			workingSetReps = undefined;
+			workingSetDuration = undefined;
 			workingSetNotes = '';
 		} else {
 			console.log('Error creating working set');
@@ -199,7 +210,10 @@
 
 	// Built from the live arrays rather than `exercise.sets`, so the minimised
 	// card reflects sets logged since the page loaded.
-	$: setSummary = summariseSets([...warmupSets, ...workingSets]);
+	$: setSummary = summariseSets([...warmupSets, ...workingSets], {
+		timed,
+		unit: $weightUnit
+	});
 	$: tags = sortTags(exercise.tags ?? []);
 
 	let minimized = true;
@@ -209,7 +223,11 @@
 	}
 
 	function workDone(set: Set) {
-		return set.weight * set.reps;
+		return timed ? (set.duration ?? 0) : set.weight * set.reps;
+	}
+
+	function heavier(newSet: Set, oldSet: Set) {
+		return timed ? (newSet.duration ?? 0) > (oldSet.duration ?? 0) : newSet.weight > oldSet.weight;
 	}
 
 	// $: {
@@ -225,7 +243,7 @@
 		if (!oldSet) {
 			return undefined;
 		}
-		if (newSet.weight > oldSet.weight) {
+		if (heavier(newSet, oldSet)) {
 			return 1;
 		} else if (workDone(newSet) > workDone(oldSet)) {
 			return 1;
@@ -296,26 +314,27 @@
 								</Popover.Trigger>
 								<Popover.Content class="w-80">
 									{#if sortedInstance.warmup.length > 0}
-										<h4 class="text-l font-bold">Warmup Sets</h4>
+										<h4 class="text-l font-bold">{timed ? 'Warmup' : 'Warmup Sets'}</h4>
 										{#each sortedInstance.warmup as set}
-											<SetComponent {set} deletionCallback={deleteSet} brief />
+											<SetComponent {set} deletionCallback={deleteSet} brief {timed} />
 										{/each}
 									{/if}
 									{#if sortedInstance.working.length > 0}
-										<h4 class="text-l font-bold mt-2">Working Sets</h4>
+										<h4 class="text-l font-bold mt-2">{timed ? 'Intervals' : 'Working Sets'}</h4>
 										{#each sortedInstance.working as set, setIndex}
 											{#if sortedOldInstances.at(workoutIndex - 1)}
 												<SetComponent
 													{set}
 													deletionCallback={deleteSet}
 													brief
+													{timed}
 													display={setComparison(
 														set,
 														sortedOldInstances.at(workoutIndex - 1)?.working.at(setIndex)
 													)}
 												/>
 											{:else}
-												<SetComponent {set} deletionCallback={deleteSet} brief />
+												<SetComponent {set} deletionCallback={deleteSet} brief {timed} />
 											{/if}
 										{/each}
 									{/if}
@@ -326,15 +345,17 @@
 				{/if}
 			</div>
 			<div class="mt-4">
-				<h3 class="text-xl font-bold">Warmup Sets</h3>
+				<h3 class="text-xl font-bold">{timed ? 'Warmup' : 'Warmup Sets'}</h3>
 				{#each warmupSets as set}
-					<SetComponent {set} deletionCallback={deleteSet} />
+					<SetComponent {set} deletionCallback={deleteSet} {timed} />
 				{/each}
 				{#if $creatingWarmupSet}
 					<Skeleton class="h-14 w-full mt-2" />
 				{/if}
-				<NewItem item="Warmup Set">
+				<NewItem item={timed ? 'Warmup Interval' : 'Warmup Set'}>
 					<InlineSetEdit
+						{timed}
+						bind:duration={warmupSetDuration}
 						bind:reps={warmupSetReps}
 						bind:weight={warmupSetWeight}
 						bind:notes={warmupSetNotes}
@@ -347,19 +368,22 @@
 				</NewItem>
 			</div>
 			<div class="mt-6">
-				<h3 class="text-xl font-bold">Working Sets</h3>
+				<h3 class="text-xl font-bold">{timed ? 'Intervals' : 'Working Sets'}</h3>
 				{#each workingSets as set, setIndex}
 					<SetComponent
 						{set}
 						deletionCallback={deleteSet}
+						{timed}
 						display={setComparison(set, sortedOldInstances.at(-1)?.working.at(setIndex))}
 					/>
 				{/each}
 				{#if $creatingWorkingSet}
 					<Skeleton class="h-14 w-full mt-2" />
 				{/if}
-				<NewItem item="Working Set">
+				<NewItem item={timed ? 'Interval' : 'Working Set'}>
 					<InlineSetEdit
+						{timed}
+						bind:duration={workingSetDuration}
 						bind:reps={workingSetReps}
 						bind:weight={workingSetWeight}
 						bind:notes={workingSetNotes}

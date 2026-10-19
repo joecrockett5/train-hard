@@ -81,13 +81,70 @@ describe('toSet', () => {
 			weight: 82.5,
 			weightUnit: 'kg',
 			reps: 5,
+			duration: 0,
 			notes: 'solid',
 			exerciseJoinId: 'join-1'
 		});
 	});
 });
 
+describe('toSet, for a timed exercise', () => {
+	it('carries the duration', () => {
+		const raw: RawSet = {
+			...base,
+			object_type: 'Set',
+			set_type: 'working',
+			weight: 0,
+			unit: 'kg',
+			reps: 0,
+			duration: 5.5,
+			notes: '',
+			exercise_join_id: 'join-1'
+		};
+
+		expect(toSet(raw).duration).toBe(5.5);
+	});
+
+	it('defaults to zero on a set written before durations existed', () => {
+		const raw: RawSet = {
+			...base,
+			object_type: 'Set',
+			set_type: 'working',
+			weight: 80,
+			unit: 'kg',
+			reps: 5,
+			notes: '',
+			exercise_join_id: 'join-1'
+		};
+
+		expect(toSet(raw).duration).toBe(0);
+	});
+});
+
 describe('toExercise', () => {
+	it('defaults an exercise with no kind to reps', () => {
+		const raw: RawExercise = {
+			...base,
+			object_type: 'Exercise',
+			name: 'Bench',
+			description: ''
+		};
+
+		expect(toExercise(raw).kind).toBe('reps');
+	});
+
+	it('carries a timed exercise through', () => {
+		const raw: RawExercise = {
+			...base,
+			object_type: 'Exercise',
+			name: 'Treadmill',
+			description: '',
+			kind: 'time'
+		};
+
+		expect(toExercise(raw).kind).toBe('time');
+	});
+
 	it('turns a null description into an empty string', () => {
 		const raw: RawExercise = {
 			...base,

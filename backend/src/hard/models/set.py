@@ -9,12 +9,23 @@ from hard.models import SetType, WeightUnit
 
 
 class Set(BaseObject):
+    """
+    One entry under an exercise.
+
+    A reps exercise uses `weight` and `reps`; a timed one uses `duration`,
+    which is minutes. All three are optional with a zero default rather than
+    one set of fields or the other, because a set is stored as a flat item and
+    the kind that decides which apply lives on the exercise, not here. The
+    defaults also let rows written before `duration` existed load unchanged.
+    """
+
     object_type: ObjectType = ObjectType.SET
     set_type: SetType
-    weight: float
-    unit: WeightUnit
-    reps: float
-    notes: str
+    weight: float = 0
+    unit: WeightUnit = WeightUnit.KILOGRAMS
+    reps: float = 0
+    duration: float = 0
+    notes: str = ""
     exercise_join_id: str
 
     @field_validator("unit")
@@ -47,3 +58,7 @@ class Set(BaseObject):
     @field_serializer("reps")
     def serialize_reps(self, reps: float, info: FieldSerializationInfo):
         return to_db_decimal(reps) if info.mode == "python" else reps
+
+    @field_serializer("duration")
+    def serialize_duration(self, duration: float, info: FieldSerializationInfo):
+        return to_db_decimal(duration) if info.mode == "python" else duration

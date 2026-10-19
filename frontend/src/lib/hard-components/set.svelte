@@ -8,14 +8,26 @@
 	import Tick from '$lib/svg/tick.svelte';
 	import Cross from '$lib/svg/cross.svelte';
 	import Dash from '$lib/svg/dash.svelte';
+	import {
+		displayWeight,
+		formatDuration,
+		formatWeight,
+		toDisplayWeight,
+		toStoredWeight,
+		weightUnit
+	} from '$lib/units';
 
 	export let set: Set;
 	export let deletionCallback: (set: Set) => void;
 	export let brief = false;
 	export let display: number | undefined = undefined;
+	/** A timed exercise's sets show minutes rather than reps at a weight. */
+	export let timed = false;
 
-	let updatedWeight = set.weight;
+	// Edited in the unit on screen; stored in kilograms.
+	let updatedWeight = Number(formatWeight(toDisplayWeight(set.weight, $weightUnit)));
 	let updatedReps = set.reps;
+	let updatedDuration = set.duration ?? 0;
 	let updatedNotes = set.notes;
 
 	async function updateSet() {
@@ -28,9 +40,10 @@
 				timestamp: set.timestamp,
 				objectId: set.objectId,
 				setType: set.setType,
-				weight: updatedWeight,
-				weightUnit: set.weightUnit,
+				weight: toStoredWeight(Number(updatedWeight), $weightUnit),
+				weightUnit: 'kg',
 				reps: updatedReps,
+				duration: updatedDuration,
 				notes: updatedNotes,
 				exerciseJoinId: set.exerciseJoinId
 			})
@@ -39,8 +52,9 @@
 		if (!response.ok) {
 			console.error('Failed to update set: ', set);
 		} else {
-			set.weight = updatedWeight;
+			set.weight = toStoredWeight(Number(updatedWeight), $weightUnit);
 			set.reps = updatedReps;
+			set.duration = updatedDuration;
 			set.notes = updatedNotes;
 		}
 	}
@@ -49,7 +63,13 @@
 <Card.Root class="w-full mt-2">
 	<div class="m-2">
 		<div class="flex justify-between items-center">
-			<p class="ml-4">{set.reps} reps @ {set.weight} kg</p>
+			<p class="ml-4">
+				{#if timed}
+					{formatDuration(set.duration ?? 0)} min
+				{:else}
+					{set.reps} reps @ {displayWeight(set.weight, $weightUnit)}
+				{/if}
+			</p>
 
 			<div class="ml-auto">
 				{#if display !== undefined}
@@ -71,6 +91,8 @@
 							<Dialog.Title>Edit Set</Dialog.Title>
 						</Dialog.Header>
 						<InlineSetEdit
+							{timed}
+							bind:duration={updatedDuration}
 							bind:reps={updatedReps}
 							bind:weight={updatedWeight}
 							bind:notes={updatedNotes}

@@ -41,6 +41,8 @@ export type RawExercise = {
 	object_type: string;
 	name: string;
 	description: string | null;
+	/** Absent on rows written before timed exercises existed. */
+	kind?: 'reps' | 'time';
 	/** Absent from the endpoints that do not join the tags in. */
 	tags?: RawTag[];
 };
@@ -87,6 +89,7 @@ export function toExercise(raw: RawExercise): Exercise {
 		objectId: raw.object_id,
 		name: raw.name,
 		description: raw.description ?? '',
+		kind: raw.kind ?? 'reps',
 		tags: (raw.tags ?? []).map(toTag)
 	};
 }
@@ -111,6 +114,7 @@ export function toSet(raw: RawSet): Set {
 		// The backend calls this `unit`.
 		weightUnit: raw.unit,
 		reps: raw.reps,
+		duration: raw.duration ?? 0,
 		notes: raw.notes,
 		exerciseJoinId: raw.exercise_join_id
 	};
@@ -192,7 +196,8 @@ export function fromExercise(body: Partial<Exercise>, { forUpdate = false } = {}
 	return {
 		...(forUpdate ? { timestamp: body.timestamp, object_id: body.objectId } : {}),
 		name: body.name,
-		description: body.description
+		description: body.description,
+		kind: body.kind ?? 'reps'
 	};
 }
 
@@ -203,6 +208,7 @@ export function fromSet(body: Partial<Set>, { forUpdate = false } = {}) {
 		weight: body.weight,
 		unit: body.weightUnit,
 		reps: body.reps,
+		duration: body.duration,
 		notes: body.notes,
 		exercise_join_id: body.exerciseJoinId
 	};
