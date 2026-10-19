@@ -69,6 +69,11 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     command: --label-enable --cleanup --include-restarting
     environment:
+      # Watchtower 1.7.1 asks the daemon for API 1.25, and Docker Engine 26
+      # and later refuse anything below 1.40 -- the container crashloops on
+      # "client version 1.25 is too old" before it checks anything. 1.41 is
+      # above that floor and understood by every daemon from 20.10 on.
+      DOCKER_API_VERSION: ${DOCKER_API_VERSION:-1.41}
       # Hourly: this is a personal app, and a tighter loop mostly spends
       # registry rate limit to find nothing.
       WATCHTOWER_POLL_INTERVAL: ${WATCHTOWER_POLL_INTERVAL:-3600}
