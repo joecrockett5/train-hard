@@ -19,16 +19,30 @@
 	let allExercises: Exercise[];
 	let allTags: Tag[];
 
+	let shownWorkoutId: string | undefined;
+
 	/**
-	 * Reassigned whenever the load runs, not destructured once.
+	 * Takes the load's data when the workout changes, and only then.
 	 *
 	 * Moving between two workouts is a navigation within the same route, so
-	 * this component is reused rather than rebuilt. Taking the data apart in
-	 * a plain `let` captured the first workout and never let go, which is why
-	 * the quick switcher needed a manual reload to show the one you picked.
+	 * this component is reused rather than rebuilt: destructuring once in a
+	 * plain `let` captured the first workout and never let go, which is why
+	 * the quick switcher needed a manual reload.
+	 *
+	 * Assigning straight from `data` on every update is the other mistake.
+	 * These four are edited in place -- an exercise removed, one added, a tag
+	 * created -- and an unguarded reactive assignment re-runs after each of
+	 * those and puts the server's copy back, so a deleted exercise reappeared
+	 * until the page was reloaded. Keying the reset on the workout's id means
+	 * a local edit is never undone, whatever else triggers an update.
 	 */
-	$: ({ workoutInfo, allExercises, tags: allTags } = data);
-	$: exercises = data.exercises;
+	$: if (data.workoutInfo.objectId !== shownWorkoutId) {
+		shownWorkoutId = data.workoutInfo.objectId;
+		workoutInfo = data.workoutInfo;
+		exercises = data.exercises;
+		allExercises = data.allExercises;
+		allTags = data.tags;
+	}
 
 	let possibleExercises: Exercise[] = [];
 
