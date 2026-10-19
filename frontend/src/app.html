@@ -3,7 +3,13 @@
 	<head>
 		<meta charset="utf-8" />
 		<link rel="icon" href="%sveltekit.assets%/favicon.png" />
-		<link rel="apple-touch-icon" href="%sveltekit.assets%/favicon.png" />
+		<!--
+			iOS uses this for "Add to Home Screen", not the manifest's icons,
+			and it wants 180x180. The image is square and opaque on purpose:
+			iOS applies its own rounded mask, and a transparent corner would
+			be composited onto black.
+		-->
+		<link rel="apple-touch-icon" sizes="180x180" href="%sveltekit.assets%/apple-touch-icon.png" />
 		<link rel="manifest" href="%sveltekit.assets%/manifest.webmanifest" />
 		<meta name="theme-color" content="#e4572e" />
 		<meta name="mobile-web-app-capable" content="yes" />
