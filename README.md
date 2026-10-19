@@ -236,16 +236,23 @@ Every image also carries a `net.train-hard.ui-language` label.
 | `1.2.0-ja` | the same release, Japanese |
 | `<sha>` | exactly one build |
 
-They are private by default; make them public, or `docker login ghcr.io`
-first. To run them instead of building locally:
+To run them instead of building locally, with no configuration:
 
 ```bash
-IMAGE_REPO=ghcr.io/<owner>/<repo>   docker compose -f docker-compose.yml -f docker-compose.ghcr.yml up
+docker compose -f docker-compose.yml -f docker-compose.ghcr.yml up -d
 ```
 
-`IMAGE_TAG` picks the version (defaults to `latest`); pin a release or a
-commit sha for a reproducible run. DynamoDB, the table init and the volume
-still come from `docker-compose.yml`.
+`IMAGE_REPO` defaults to this project's own packages, so a clone pulls the
+published build; set it to run a fork's images instead. `IMAGE_TAG` picks
+which build and which language — `latest` by default, see the table above —
+and pinning a release or a commit sha is how you stop Watchtower moving you
+on. DynamoDB, the table init and the volume still come from
+`docker-compose.yml`.
+
+**GHCR packages are private until you say otherwise.** Anyone pulling a
+private one needs `docker login ghcr.io` with a token that can read
+packages; make them public (Packages → the package → Package settings →
+Change visibility) and the command above works for anybody, unauthenticated.
 
 Nothing deploys to a server — there is no hosting target configured. The
 pipeline's output is tested, tagged images.
