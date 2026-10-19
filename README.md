@@ -496,21 +496,16 @@ It needs the `/api` suffix and must use the service name `backend`, not
 **403 "Cross-site POST form submissions are forbidden".** The origin the
 server believes it is serving does not match the one the browser sent.
 
-Ask it, rather than guessing — through the proxy, exactly as a browser
-reaches it:
+Behind a proxy, check the override file is actually in the command:
 
 ```bash
-curl -s https://your.domain/diagnostics/origin | python3 -m json.tool
+docker compose -f docker-compose.yml -f docker-compose.proxy.yml up -d
 ```
 
-`resolvedOrigin` is what the CSRF check compares against.
-
-- `usingFixedOrigin: true` behind a proxy means the override file is not in
-  the command, so a fixed URL is being used instead of the headers.
-- `https://undefined` means `HOST_HEADER` names a header the proxy does not
-  send; `headersReceived` shows which ones did arrive.
-- A correct `resolvedOrigin` with a different `sentOrigin` means the browser
-  reaches the app by another name or scheme than the proxy passes on.
+Without it the origin is a fixed URL, and a fixed URL cannot match a proxied
+domain it was not set to. Setting `ORIGIN=` blank in `.env` does the same
+job, but only if the line is there and empty — deleting or commenting it out
+falls back to the localhost default and looks the same in an editor.
 
 With `ORIGIN` set, it must be exactly the scheme, host and port in the
 address bar -- so one fixed value can serve http:// or https://, never both.

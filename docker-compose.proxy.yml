@@ -17,10 +17,6 @@
 # Only use it behind something that actually sets these headers. Exposed
 # directly, a client could claim whatever origin it liked -- which is the
 # attack a fixed ORIGIN exists to prevent.
-#
-# Check what the app resolved with:
-#
-#   curl -s https://your.domain/diagnostics/origin | python3 -m json.tool
 
 services:
   frontend:
