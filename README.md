@@ -244,9 +244,9 @@ docker compose -f docker-compose.yml -f docker-compose.ghcr.yml up -d
 
 `IMAGE_REPO` defaults to this project's own packages, so a clone pulls the
 published build; set it to run a fork's images instead. `IMAGE_TAG` picks
-which build and which language — `latest` by default, see the table above —
-and pinning a release or a commit sha is how you stop Watchtower moving you
-on. DynamoDB, the table init and the volume still come from
+which build and which language — `japanese` by default on this branch, see
+the table above — and pinning a release or a commit sha is how you stop
+Watchtower moving you on. DynamoDB, the table init and the volume still come from
 `docker-compose.yml`.
 
 **GHCR packages are private until you say otherwise.** Anyone pulling a

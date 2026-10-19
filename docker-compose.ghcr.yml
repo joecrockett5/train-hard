@@ -11,11 +11,14 @@
 #
 # IMAGE_TAG picks which build, and which language:
 #
-#   latest     the English UI, tracking main          (the default)
-#   japanese   the Japanese UI, tracking that branch
-#   1.2.0      an English release
-#   1.2.0-ja   the same release, Japanese
+#   japanese   the Japanese UI, tracking this branch  (the default)
+#   latest     the English UI, tracking main
+#   1.2.0-ja   a Japanese release
+#   1.2.0      the same release, English
 #   <sha>      exactly one build
+#
+# The default is `japanese`, not `latest`: this is the Japanese branch, and
+# inheriting main's default would hand a checkout of it the English app.
 #
 # The two languages never share a tag, so a running stack cannot be switched
 # from one to the other by an update.
@@ -25,19 +28,19 @@
 
 services:
   dynamodb-init:
-    image: ${IMAGE_REPO:-ghcr.io/joecrockett5/train-hard}/backend:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REPO:-ghcr.io/joecrockett5/train-hard}/backend:${IMAGE_TAG:-japanese}
     build: !reset null
     labels:
       com.centurylinklabs.watchtower.enable: "true"
 
   backend:
-    image: ${IMAGE_REPO:-ghcr.io/joecrockett5/train-hard}/backend:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REPO:-ghcr.io/joecrockett5/train-hard}/backend:${IMAGE_TAG:-japanese}
     build: !reset null
     labels:
       com.centurylinklabs.watchtower.enable: "true"
 
   frontend:
-    image: ${IMAGE_REPO:-ghcr.io/joecrockett5/train-hard}/frontend:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REPO:-ghcr.io/joecrockett5/train-hard}/frontend:${IMAGE_TAG:-japanese}
     build: !reset null
     labels:
       com.centurylinklabs.watchtower.enable: "true"
