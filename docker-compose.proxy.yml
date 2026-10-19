@@ -1,0 +1,33 @@
+# Run behind a reverse proxy (Nginx Proxy Manager, Caddy, Traefik).
+#
+#   docker compose -f docker-compose.yml -f docker-compose.ghcr.yml \
+#     -f docker-compose.proxy.yml up -d
+#
+# Adding this file is the whole switch. The app then works out the URL the
+# browser used from the proxy's own headers, per request, which is the only
+# way http:// and https:// can both work at once -- a fixed ORIGIN matches
+# one of them and 403s every form POST from the other.
+#
+# Doing the same through ORIGIN in .env means writing a line that is present
+# and empty. A line that is deleted or commented out instead falls back to
+# the localhost default, which looks identical in a text editor and refuses
+# every login with "Cross-site POST form submissions are forbidden". This
+# file cannot be got subtly wrong: either it is in the command or it is not.
+#
+# Only use it behind something that actually sets these headers. Exposed
+# directly, a client could claim whatever origin it liked -- which is the
+# attack a fixed ORIGIN exists to prevent.
+#
+# Check what the app resolved with:
+#
+#   curl -s https://your.domain/diagnostics/origin | python3 -m json.tool
+
+services:
+  frontend:
+    environment:
+      # Empty: derive it from the headers below rather than fixing one URL.
+      ORIGIN: ""
+      PROTOCOL_HEADER: ${PROTOCOL_HEADER:-x-forwarded-proto}
+      # `host`, not `x-forwarded-host`: a proxy rewrites Host to the name the
+      # browser asked for, and most send no X-Forwarded-Host at all.
+      HOST_HEADER: ${HOST_HEADER:-host}

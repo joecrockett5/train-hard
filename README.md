@@ -168,26 +168,37 @@ Two values matter:
 
 ```bash
 FRONTEND_HOST_PORT=7999          # the port the proxy forwards to
-ORIGIN=                          # blank: read it from the proxy's headers
 ```
 
-`ORIGIN` is the one that catches people. SvelteKit compares it against the
-`Origin` header on every form POST, and selecting or creating a profile is a
-form POST. Get it wrong and those silently do nothing (a 403 the UI does not
-surface).
+**2. Add the proxy override to the command.**
 
-**Behind a proxy, leave it blank.** The origin is then read per request from
-`x-forwarded-proto` and `x-forwarded-host`, which means http:// and https://
-both work at the same time — a fixed `ORIGIN` can only ever match one, and
-devices on the other scheme get 403s. It also marks the profile cookie
-`Secure` on exactly the requests that are secure; a Secure cookie sent over
-http is discarded by the browser, which looks like selecting a profile doing
-nothing at all.
+```bash
+docker compose -f docker-compose.yml -f docker-compose.proxy.yml up -d --build
+```
 
-Set it to an exact URL instead when nothing trustworthy sits in front —
-scheme, host, and a port only if the address bar shows one. Unproxied, blank
-is wrong: the adapter assumes https when the header is missing and refuses
-http:// visitors.
+The origin is the thing that catches people. SvelteKit compares it against
+the `Origin` header on every form POST, and selecting or creating a profile
+is a form POST. Get it wrong and those silently do nothing — a 403 the UI
+does not surface.
+
+`docker-compose.proxy.yml` works it out per request from the proxy's own
+headers, which is why it is a file you add rather than a value you set.
+http:// and https:// then both work at the same time; a fixed URL matches
+one of them and refuses the other. It also marks the profile cookie `Secure`
+on exactly the requests that are secure — a Secure cookie sent over http is
+discarded by the browser, which looks like selecting a profile doing nothing
+at all.
+
+Without the override, `ORIGIN` is a fixed URL: the default is localhost, and
+you set it in `.env` for anything else. It must match the address bar
+exactly — scheme, host, and a port only if one is shown. Unproxied that is
+what you want, because with no proxy header the adapter assumes https and
+would refuse plain http visitors.
+
+Setting `ORIGIN=` blank in `.env` does the same job as the override file,
+but a line that is deleted or commented out instead of blanked falls back to
+the localhost default and looks identical in an editor. The override file
+cannot be got subtly wrong.
 
 **2. Bring it up.**
 
@@ -485,18 +496,21 @@ It needs the `/api` suffix and must use the service name `backend`, not
 **403 "Cross-site POST form submissions are forbidden".** The origin the
 server believes it is serving does not match the one the browser sent.
 
-Ask it, rather than guessing -- through the proxy, exactly as a browser
+Ask it, rather than guessing — through the proxy, exactly as a browser
 reaches it:
 
 ```bash
 curl -s https://your.domain/diagnostics/origin | python3 -m json.tool
 ```
 
-`resolvedOrigin` is what the CSRF check compares against. If it reads
-`https://undefined`, `HOST_HEADER` names a header the proxy does not send:
-`hostHeaderValue` is null and `headersReceived` shows which ones did arrive.
-If it is right but `sentOrigin` differs, the browser is reaching the app by
-a different name or scheme than the proxy is passing on.
+`resolvedOrigin` is what the CSRF check compares against.
+
+- `usingFixedOrigin: true` behind a proxy means the override file is not in
+  the command, so a fixed URL is being used instead of the headers.
+- `https://undefined` means `HOST_HEADER` names a header the proxy does not
+  send; `headersReceived` shows which ones did arrive.
+- A correct `resolvedOrigin` with a different `sentOrigin` means the browser
+  reaches the app by another name or scheme than the proxy passes on.
 
 With `ORIGIN` set, it must be exactly the scheme, host and port in the
 address bar -- so one fixed value can serve http:// or https://, never both.
