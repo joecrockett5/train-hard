@@ -100,7 +100,7 @@
 		<Plus class="mr-2 h-5 w-5" />
 		Start today's workout
 	</Dialog.Trigger>
-	<Dialog.Content class="w-3/4 max-w-lg">
+	<Dialog.Content>
 		<Dialog.Header>
 			<Dialog.Title>New Workout</Dialog.Title>
 			<Dialog.Description>{formattedDate}</Dialog.Description>

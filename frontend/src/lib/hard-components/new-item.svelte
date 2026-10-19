@@ -15,7 +15,7 @@
 		<Plus />
 		New {item}
 	</Dialog.Trigger>
-	<Dialog.Content class={className + ' w-3/4 max-w-lg'}>
+	<Dialog.Content class={className}>
 		<Dialog.Header>
 			<Dialog.Title>New {item}</Dialog.Title>
 			<Dialog.Description>

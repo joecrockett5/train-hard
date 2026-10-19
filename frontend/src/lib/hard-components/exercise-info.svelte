@@ -69,7 +69,7 @@
 			<Dialog.Trigger class={`float-right top-4 right-4 ${buttonVariants({ variant: 'ghost' })}`}
 				>Edit</Dialog.Trigger
 			>
-			<Dialog.Content class="w-3/4 max-w-lg">
+			<Dialog.Content>
 				<Dialog.Header>
 					<Dialog.Title>Edit {exercise.name}</Dialog.Title>
 					<Dialog.Description>Edit this exercise</Dialog.Description>

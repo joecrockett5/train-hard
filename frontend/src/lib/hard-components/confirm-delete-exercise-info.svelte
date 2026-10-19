@@ -10,7 +10,7 @@
 
 <Dialog.Root>
 	<Dialog.Trigger class={buttonVariants({ variant: 'destructive' }) + 'm-4'}>Delete</Dialog.Trigger>
-	<Dialog.Content class="max-w-lg">
+	<Dialog.Content>
 		<Dialog.Header>
 			<Dialog.Title>Are you sure you want to delete this exercise?</Dialog.Title>
 			<Dialog.Description>This cannot be undone.</Dialog.Description>

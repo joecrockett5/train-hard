@@ -20,7 +20,14 @@
 		{transition}
 		{transitionConfig}
 		class={cn(
-			'bg-background fixed left-[50%] top-[50%] z-50 w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border p-6 shadow-lg sm:rounded-lg md:w-full',
+			/*
+				90vw, not a percentage: a percentage width resolves against the
+				containing block, which for a fixed element is the viewport
+				only while no ancestor has a transform -- and the sheet and the
+				dialog's own entry animation both set one. Viewport units are
+				the same 90% of the screen wherever the dialog is opened from.
+			*/
+			'bg-background fixed left-[50%] top-[50%] z-50 w-[90vw] max-w-[90vw] translate-x-[-50%] translate-y-[-50%] gap-4 border p-6 shadow-lg sm:rounded-lg',
 			className
 		)}
 		{...$$restProps}

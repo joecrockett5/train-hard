@@ -86,7 +86,7 @@
 			{#if !brief}
 				<Dialog.Root>
 					<Dialog.Trigger class={`${buttonVariants({ variant: 'ghost' })}`}>Edit</Dialog.Trigger>
-					<Dialog.Content class="w-3/4 max-w-lg">
+					<Dialog.Content>
 						<Dialog.Header>
 							<Dialog.Title>Edit Set</Dialog.Title>
 						</Dialog.Header>

@@ -93,7 +93,7 @@
 		<Plus class="mr-2 h-4 w-4" />
 		{label}
 	</Dialog.Trigger>
-	<Dialog.Content class="w-3/4 max-w-lg">
+	<Dialog.Content>
 		<Dialog.Header>
 			<Dialog.Title>{label}</Dialog.Title>
 		</Dialog.Header>
