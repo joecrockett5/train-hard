@@ -261,7 +261,7 @@
 			<Dialog.Trigger class={`float-right top-4 right-4 ${buttonVariants({ variant: 'ghost' })}`}
 				>Delete</Dialog.Trigger
 			>
-			<Dialog.Content class="w-3/4">
+			<Dialog.Content>
 				<Dialog.Header>
 					<Dialog.Title>Are you sure?</Dialog.Title>
 					<Dialog.Description>This cannot be undone.</Dialog.Description>
@@ -344,29 +344,40 @@
 					</div>
 				{/if}
 			</div>
-			<div class="mt-4">
-				<h3 class="text-xl font-bold">{timed ? 'Warmup' : 'Warmup Sets'}</h3>
-				{#each warmupSets as set}
-					<SetComponent {set} deletionCallback={deleteSet} {timed} />
-				{/each}
-				{#if $creatingWarmupSet}
-					<Skeleton class="h-14 w-full mt-2" />
-				{/if}
-				<NewItem item={timed ? 'Warmup Interval' : 'Warmup Set'}>
-					<InlineSetEdit
-						{timed}
-						bind:duration={warmupSetDuration}
-						bind:reps={warmupSetReps}
-						bind:weight={warmupSetWeight}
-						bind:notes={warmupSetNotes}
-					/>
-					<Dialog.Footer>
-						<Dialog.Close class={buttonVariants({ variant: 'default' })} on:click={createWarmupSet}
-							>Add</Dialog.Close
-						>
-					</Dialog.Footer>
-				</NewItem>
-			</div>
+			<!--
+				No warm-up for a timed exercise: a cardio session is just its
+				intervals, and splitting them into two lists asked a question
+				nobody wanted to answer. Existing warm-up sets are still shown
+				if any were logged before this, rather than hidden.
+			-->
+			{#if !timed || warmupSets.length > 0}
+				<div class="mt-4">
+					<h3 class="text-xl font-bold">{timed ? 'Warmup' : 'Warmup Sets'}</h3>
+					{#each warmupSets as set}
+						<SetComponent {set} deletionCallback={deleteSet} {timed} />
+					{/each}
+					{#if $creatingWarmupSet}
+						<Skeleton class="h-14 w-full mt-2" />
+					{/if}
+					{#if !timed}
+						<NewItem item="Warmup Set">
+							<InlineSetEdit
+								{timed}
+								bind:duration={warmupSetDuration}
+								bind:reps={warmupSetReps}
+								bind:weight={warmupSetWeight}
+								bind:notes={warmupSetNotes}
+							/>
+							<Dialog.Footer>
+								<Dialog.Close
+									class={buttonVariants({ variant: 'default' })}
+									on:click={createWarmupSet}>Add</Dialog.Close
+								>
+							</Dialog.Footer>
+						</NewItem>
+					{/if}
+				</div>
+			{/if}
 			<div class="mt-6">
 				<h3 class="text-xl font-bold">{timed ? 'Intervals' : 'Working Sets'}</h3>
 				{#each workingSets as set, setIndex}
