@@ -77,15 +77,26 @@ Two values matter:
 
 ```bash
 FRONTEND_HOST_PORT=7999          # the port the proxy forwards to
-ORIGIN=http://training.jmedia    # the URL the browser uses, exactly
+ORIGIN=                          # blank: read it from the proxy's headers
 ```
 
 `ORIGIN` is the one that catches people. SvelteKit compares it against the
 `Origin` header on every form POST, and selecting or creating a profile is a
 form POST. Get it wrong and those silently do nothing (a 403 the UI does not
-surface). Include the scheme; include a port only if the browser's address
-bar shows one. Behind a proxy on :80 it has no port, even though the
-container is published on 7999.
+surface).
+
+**Behind a proxy, leave it blank.** The origin is then read per request from
+`x-forwarded-proto` and `x-forwarded-host`, which means http:// and https://
+both work at the same time — a fixed `ORIGIN` can only ever match one, and
+devices on the other scheme get 403s. It also marks the profile cookie
+`Secure` on exactly the requests that are secure; a Secure cookie sent over
+http is discarded by the browser, which looks like selecting a profile doing
+nothing at all.
+
+Set it to an exact URL instead when nothing trustworthy sits in front —
+scheme, host, and a port only if the address bar shows one. Unproxied, blank
+is wrong: the adapter assumes https when the header is missing and refuses
+http:// visitors.
 
 **2. Bring it up.**
 
@@ -113,6 +124,22 @@ proxy only needs port 7999.
   than `localhost` — NPM in a container resolves `localhost` to itself.
 
 **5. Open it, create a profile, done.**
+
+### Keeping it updated
+
+`docker-compose.ghcr.yml` runs Watchtower alongside the published images. It
+watches the tag each container is running and redeploys when that tag's
+digest changes, so a push to `main` reaches the machine on its own. It only
+touches containers carrying
+`com.centurylinklabs.watchtower.enable` -- the three app services do,
+DynamoDB deliberately does not.
+
+Pinning a version or a sha as `IMAGE_TAG` is how you opt out: those never
+move, so Watchtower finds nothing to do. `latest` and `japanese` are the
+moving tags.
+
+It needs the Docker socket, which is full control of the daemon. Fine on a
+machine you own; think twice on a shared host.
 
 ### Afterwards
 
@@ -194,6 +221,20 @@ pass. It skips pull requests entirely.
 Pushed to `ghcr.io/<owner>/<repo>/backend` and `.../frontend`, tagged with the
 branch name, the full commit sha, and — on `main` — `latest`. A `v1.2.0` tag
 also produces `1.2.0` and `1.2`.
+
+The two branches build the same app with different interface strings, so
+their images never share a tag: an update must not quietly change the
+language. `main` owns `latest`; `japanese` has its own branch tag, and a
+release cut from it is suffixed so it cannot overwrite the English one.
+Every image also carries a `net.train-hard.ui-language` label.
+
+| Tag | What |
+| --- | --- |
+| `latest` | English, tracking `main` |
+| `japanese` | Japanese, tracking that branch |
+| `1.2.0` | an English release |
+| `1.2.0-ja` | the same release, Japanese |
+| `<sha>` | exactly one build |
 
 They are private by default; make them public, or `docker login ghcr.io`
 first. To run them instead of building locally:
@@ -290,7 +331,10 @@ documents all of them. The ones that matter:
 | `DYNAMO_TABLE_NAME` | `hardResources` | Must match what `scripts/init_tables.py` creates. |
 | `AWS_REGION` | `eu-west-2` | Dummy locally, but boto3 will not sign without it. |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | `local` / `local` | Dummy. DynamoDB Local ignores them; boto3 requires them to exist. |
-| `ORIGIN` | `http://localhost:3000` | The browser-facing URL. `adapter-node` checks form POSTs against it and answers 403 if it does not match, so change it with `FRONTEND_HOST_PORT`. |
+| `ORIGIN` | `http://localhost:3000` | The browser-facing URL. `adapter-node` checks form POSTs against it and answers 403 if it does not match. Blank it behind a reverse proxy to use the headers below instead, which is what lets http and https work at once. |
+| `PROTOCOL_HEADER` | `x-forwarded-proto` | Read only when `ORIGIN` is blank. |
+| `HOST_HEADER` | `x-forwarded-host` | Read only when `ORIGIN` is blank. |
+| `WATCHTOWER_POLL_INTERVAL` | `3600` | Seconds between update checks, with the GHCR compose file. |
 | `FRONTEND_HOST_PORT` | `3000` | |
 | `FRONTEND_BIND` | `0.0.0.0` | Published to the network so a phone can reach it. Set to `127.0.0.1` for this machine only. |
 | `BACKEND_HOST_PORT` | `8000` | Bound to 127.0.0.1. A profile id is the only credential the API takes, so it is deliberately not reachable from the network. |
@@ -339,9 +383,27 @@ it is DynamoDB that is unreachable. `docker compose logs backend` has the rest.
 It needs the `/api` suffix and must use the service name `backend`, not
 `localhost`, from inside the container.
 
-**403 "Cross-site POST form submissions are forbidden".** `ORIGIN` does not
-match the URL you are using. Set it to exactly the scheme, host and port in
-the address bar.
+**403 "Cross-site POST form submissions are forbidden".** The origin the
+server believes it is serving does not match the one the browser sent.
+
+With `ORIGIN` set, it must be exactly the scheme, host and port in the
+address bar -- so one fixed value can serve http:// or https://, never both.
+Behind a reverse proxy, blank it instead:
+
+```bash
+ORIGIN=
+```
+
+and the origin is read per request from `PROTOCOL_HEADER` and `HOST_HEADER`
+(`x-forwarded-proto` and `x-forwarded-host` by default), which both schemes
+satisfy at once. That also makes the profile cookie `Secure` on exactly the
+requests that are secure, which is the other half of the symptom: a Secure
+cookie delivered over http is discarded, and selecting a profile then appears
+to do nothing.
+
+Blank `ORIGIN` only behind something that actually sets those headers.
+Unproxied, the adapter assumes https when the header is missing and an
+http:// visitor is refused.
 
 **Changes not appearing.** In production mode the app is a built bundle;
 either rebuild (`docker compose up --build`) or use dev mode.

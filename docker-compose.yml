@@ -122,12 +122,31 @@ services:
       HARD_API: ${HARD_API:-http://backend:8000/api}
       PORT: 3000
       HOST: 0.0.0.0
-      # adapter-node checks the Origin header of form POSTs against this and
-      # answers 403 "Cross-site POST form submissions are forbidden" when it
-      # cannot match. It has no way to know the host-side URL, so it must be
-      # told. Change it alongside FRONTEND_HOST_PORT, or when reaching the app
-      # at anything other than localhost.
-      ORIGIN: ${ORIGIN:-http://localhost:${FRONTEND_HOST_PORT:-3000}}
+      # adapter-node checks the Origin header of form POSTs against the
+      # origin it believes it is serving, and answers 403 "Cross-site POST
+      # form submissions are forbidden" when the two disagree.
+      #
+      # Two ways to tell it. ORIGIN fixes one absolute URL, which is simple
+      # but single-protocol: set it to the https:// address and anyone
+      # arriving over http:// is refused, and the other way round. Leaving
+      # ORIGIN unset and naming these headers instead makes it read the
+      # origin from the proxy per request, so http and https both work at
+      # once and the profile cookie picks up Secure only on the requests
+      # that are actually secure.
+      #
+      # Only trust them behind a proxy that sets them -- Nginx Proxy Manager,
+      # Caddy and Traefik all do. Exposed directly, a client could claim any
+      # origin it liked, which is what ORIGIN protects against.
+      #
+      # Note `${ORIGIN-...}` rather than `${ORIGIN:-...}`: the default applies
+      # only when ORIGIN is unset, so writing an empty `ORIGIN=` in .env is
+      # how you opt into the header mode. Left to the default, a plain
+      # `docker compose up` still works with no proxy and no .env, which it
+      # would not if the protocol fell back to the adapter's own default of
+      # https.
+      ORIGIN: ${ORIGIN-http://localhost:${FRONTEND_HOST_PORT:-3000}}
+      PROTOCOL_HEADER: ${PROTOCOL_HEADER:-x-forwarded-proto}
+      HOST_HEADER: ${HOST_HEADER:-x-forwarded-host}
     ports:
       # Left on all interfaces: this is a gym app, and reaching it from a
       # phone on the same network is the point. Set FRONTEND_BIND to

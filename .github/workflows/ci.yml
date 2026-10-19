@@ -176,6 +176,25 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # The two branches build the same app with different interface
+      # strings, so their images must never share a tag: pulling an update
+      # must not silently change the language the app is in.
+      #
+      # The branch tags (`main`, `japanese`) and `latest` already separate
+      # them. A version tag does not -- `v1.2.0` cut on either branch would
+      # produce the same `1.2.0` and one would overwrite the other -- so
+      # releases off `japanese` carry a suffix.
+      - name: UI language
+        id: lang
+        run: |
+          if [ "$GITHUB_REF_NAME" = "japanese" ] || [ "${{ github.event.base_ref }}" = "refs/heads/japanese" ]; then
+            echo "language=japanese" >> "$GITHUB_OUTPUT"
+            echo "suffix=-ja" >> "$GITHUB_OUTPUT"
+          else
+            echo "language=english" >> "$GITHUB_OUTPUT"
+            echo "suffix=" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Tags and labels
         id: meta
         uses: docker/metadata-action@v5
@@ -183,10 +202,12 @@ jobs:
           images: ${{ steps.image.outputs.name }}
           tags: |
             type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{version}},suffix=${{ steps.lang.outputs.suffix }}
+            type=semver,pattern={{major}}.{{minor}},suffix=${{ steps.lang.outputs.suffix }}
             type=sha,format=long
             type=raw,value=latest,enable={{is_default_branch}}
+          labels: |
+            net.train-hard.ui-language=${{ steps.lang.outputs.language }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
