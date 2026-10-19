@@ -26,8 +26,12 @@
 				only while no ancestor has a transform -- and the sheet and the
 				dialog's own entry animation both set one. Viewport units are
 				the same 90% of the screen wherever the dialog is opened from.
+
+				Height is the content's, capped at 85vh and scrolling past
+				that, rather than a fixed fraction -- a picker showing one
+				result should not be the same height as one showing eight.
 			*/
-			'bg-background fixed left-[50%] top-[50%] z-50 w-[90vw] max-w-[90vw] translate-x-[-50%] translate-y-[-50%] gap-4 border p-6 shadow-lg sm:rounded-lg',
+			'bg-background fixed left-[50%] top-[50%] z-50 max-h-[85vh] w-[90vw] max-w-[90vw] translate-x-[-50%] translate-y-[-50%] gap-4 overflow-y-auto border p-6 shadow-lg sm:rounded-lg',
 			className
 		)}
 		{...$$restProps}

@@ -172,7 +172,6 @@
 <NewItem
 	item="Exercise"
 	description={`Add an exercise to “${workoutInfo.title}”`}
-	className="h-4/5"
 	bind:open={pickerOpen}
 >
 	<div>
