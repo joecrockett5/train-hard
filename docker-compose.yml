@@ -146,7 +146,13 @@ services:
       # https.
       ORIGIN: ${ORIGIN-http://localhost:${FRONTEND_HOST_PORT:-3000}}
       PROTOCOL_HEADER: ${PROTOCOL_HEADER:-x-forwarded-proto}
-      HOST_HEADER: ${HOST_HEADER:-x-forwarded-host}
+      # `host`, not `x-forwarded-host`: a reverse proxy rewrites Host to the
+      # name the browser asked for, and most -- Nginx Proxy Manager included
+      # -- send no X-Forwarded-Host at all. Pointing at a header nothing
+      # sends makes the origin "https://undefined", which matches nothing and
+      # 403s every form POST. Override it for a proxy that instead preserves
+      # the upstream Host and puts the public name in X-Forwarded-Host.
+      HOST_HEADER: ${HOST_HEADER:-host}
     ports:
       # Left on all interfaces: this is a gym app, and reaching it from a
       # phone on the same network is the point. Set FRONTEND_BIND to
