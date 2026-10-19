@@ -22,13 +22,34 @@ const CACHE = `hard-cache-${version}`;
 // `build` is the compiled JS and CSS, `files` is everything in static/.
 const PRECACHE = [...build, ...files];
 
-worker.addEventListener('install', (event) => {
-	event.waitUntil(
-		caches
-			.open(CACHE)
-			.then((cache) => cache.addAll(PRECACHE))
-			.then(() => worker.skipWaiting())
+/**
+ * Precaches file by file, tolerating any that fail.
+ *
+ * `cache.addAll` rejects the whole batch if a single request does, which
+ * fails the install -- and a worker that cannot install never replaces the
+ * one already running. The old worker then keeps serving, and keeps failing,
+ * with no way back except clearing the site's data by hand. One asset being
+ * briefly unavailable mid-deploy should not be able to strand a device.
+ *
+ * A file missed here is not lost: the fetch handler finds it absent from the
+ * cache and goes to the network for it.
+ */
+async function precache(): Promise<void> {
+	const cache = await caches.open(CACHE);
+
+	await Promise.all(
+		PRECACHE.map(async (path) => {
+			try {
+				await cache.add(path);
+			} catch {
+				// Left out of the cache; fetched from the network on demand.
+			}
+		})
 	);
+}
+
+worker.addEventListener('install', (event) => {
+	event.waitUntil(precache().then(() => worker.skipWaiting()));
 });
 
 worker.addEventListener('activate', (event) => {
@@ -60,7 +81,9 @@ worker.addEventListener('fetch', (event) => {
 
 	if (isPrecached) {
 		// Build output is content-hashed and static/ is stable, so the cache
-		// is authoritative and there is no reason to revalidate.
+		// is authoritative and there is no reason to revalidate. A file that
+		// failed to precache is simply absent, and falls through to the
+		// network.
 		event.respondWith(
 			caches.open(CACHE).then(async (cache) => {
 				const hit = await cache.match(url.pathname);
@@ -84,14 +107,21 @@ worker.addEventListener('fetch', (event) => {
 				}
 
 				return response;
-			} catch (networkError) {
+			} catch {
 				const hit = await cache.match(request);
 
 				if (hit) {
 					return hit;
 				}
 
-				throw networkError;
+				// Rethrowing rejects respondWith, and the browser reports
+				// that as "FetchEvent.respondWith received an error", which
+				// names the worker rather than the problem and offers the
+				// reader nothing to do. Say what happened instead.
+				return new Response(
+					'Cannot reach the app, and no copy of this page is stored on this device.',
+					{ status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } }
+				);
 			}
 		})()
 	);
