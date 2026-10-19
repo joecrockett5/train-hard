@@ -2,26 +2,31 @@
 	import { Button } from '$lib/components/ui/button';
 	import Sun from 'lucide-svelte/icons/sun';
 	import Moon from 'lucide-svelte/icons/moon';
+	import { darkMode } from '$lib/theme';
 
-	/** The active profile's stored preference, as the server rendered it. */
-	export let darkMode: boolean;
-
+	/**
+	 * Read from the store, not taken as a prop.
+	 *
+	 * The nav sheet rebuilds its contents each time it opens, so a prop held
+	 * the profile's value as the page was loaded: after toggling once, the
+	 * button went back to offering "switch to dark mode" on a page that was
+	 * already dark.
+	 */
 	let saving = false;
 
 	/**
 	 * Flips the theme straight away and persists it afterwards.
 	 *
-	 * The class on <html> is what Tailwind's `darkMode: ['class']` reads, and
-	 * the server already put it there for this page load; toggling it here
-	 * rather than waiting for the round trip is what makes the switch feel
-	 * instant. If the write fails the class goes back, so what is on screen
-	 * never disagrees with what is stored.
+	 * The layout puts the `dark` class on <html> from this store, so setting
+	 * it is all that is needed and the switch is instant. If the write fails
+	 * the store goes back, so what is on screen never disagrees with what is
+	 * stored.
 	 */
 	async function toggle() {
-		const next = !darkMode;
+		const previous = $darkMode;
+		const next = !previous;
 
-		darkMode = next;
-		document.documentElement.classList.toggle('dark', next);
+		darkMode.set(next);
 		saving = true;
 
 		try {
@@ -36,8 +41,7 @@
 			}
 		} catch (error) {
 			console.error('Failed to save the theme: ', error);
-			darkMode = !next;
-			document.documentElement.classList.toggle('dark', !next);
+			darkMode.set(previous);
 		} finally {
 			saving = false;
 		}
@@ -49,11 +53,11 @@
 	size="icon"
 	on:click={toggle}
 	disabled={saving}
-	aria-pressed={darkMode}
-	aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-	title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+	aria-pressed={$darkMode}
+	aria-label={$darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+	title={$darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
 >
-	{#if darkMode}
+	{#if $darkMode}
 		<Sun class="h-5 w-5" />
 	{:else}
 		<Moon class="h-5 w-5" />

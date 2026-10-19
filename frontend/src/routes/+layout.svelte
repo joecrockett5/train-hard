@@ -10,6 +10,7 @@
 	import ThemeToggle from '$lib/hard-components/theme-toggle.svelte';
 	import UnitToggle from '$lib/hard-components/unit-toggle.svelte';
 	import { weightUnit } from '$lib/units';
+	import { darkMode } from '$lib/theme';
 	import type { WorkoutInfo } from '$lib/types';
 
 	export let data;
@@ -26,15 +27,38 @@
 		window.scrollTo(0, 0);
 	});
 
+	let serverDarkMode: boolean | undefined;
+
+	/**
+	 * The theme, from the active profile.
+	 *
+	 * Guarded the same way as the unit below: applied when the server's own
+	 * value changes, never on every update, or toggling would be undone by
+	 * the profile the page was loaded with.
+	 */
+	$: if (data.profile && data.profile.darkMode !== serverDarkMode) {
+		serverDarkMode = data.profile.darkMode;
+		darkMode.set(serverDarkMode);
+	}
+
+	let serverUnit: 'kg' | 'lbs' | undefined;
+
 	/**
 	 * The unit every weight in the app is shown in, from the active profile.
 	 *
 	 * Set here rather than passed down: a set's weight is rendered several
 	 * components deep, and this follows the profile exactly as the theme
-	 * does. Reassigned on navigation, which is also what picks up a profile
-	 * switch.
+	 * does.
+	 *
+	 * Only applied when the server's own value changes -- first load, a
+	 * profile switch, or a reload after it was changed elsewhere. Setting it
+	 * on every update would undo the toggle, since the profile the page was
+	 * loaded with still says what it said then.
 	 */
-	$: weightUnit.set(data.profile?.weightUnit ?? 'kg');
+	$: if (data.profile && data.profile.weightUnit !== serverUnit) {
+		serverUnit = data.profile.weightUnit;
+		weightUnit.set(serverUnit);
+	}
 
 	let sheetOpen = false;
 	let recent: WorkoutInfo[] = [];
@@ -101,7 +125,7 @@
 	 * Toggling does not change `data`, so it does not fight the toggle.
 	 */
 	$: if (browser) {
-		document.documentElement.classList.toggle('dark', data.profile?.darkMode ?? false);
+		document.documentElement.classList.toggle('dark', $darkMode);
 	}
 </script>
 
@@ -165,8 +189,8 @@
 						{data.profile.name} · Switch profile
 					</Button>
 				</form>
-				<UnitToggle unit={data.profile.weightUnit} />
-				<ThemeToggle darkMode={data.profile.darkMode} />
+				<UnitToggle />
+				<ThemeToggle />
 			</div>
 		</Sheet.Content>
 	</Sheet.Root>

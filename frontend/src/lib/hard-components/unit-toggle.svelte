@@ -2,9 +2,14 @@
 	import { Button } from '$lib/components/ui/button';
 	import { weightUnit, type WeightUnit } from '$lib/units';
 
-	/** The active profile's stored preference, as the server rendered it. */
-	export let unit: WeightUnit;
-
+	/**
+	 * Read from the store, not taken as a prop.
+	 *
+	 * The nav sheet rebuilds its contents each time it opens, so a prop
+	 * captured the profile's value as the page was loaded and the button
+	 * went back to reading "kg" after every toggle until a reload. The store
+	 * is the live value the rest of the app renders from.
+	 */
 	let saving = false;
 
 	/**
@@ -16,10 +21,9 @@
 	 * Nothing is converted in the database -- weights are always kilograms.
 	 */
 	async function toggle() {
-		const next: WeightUnit = unit === 'kg' ? 'lbs' : 'kg';
-		const previous = unit;
+		const previous: WeightUnit = $weightUnit;
+		const next: WeightUnit = previous === 'kg' ? 'lbs' : 'kg';
 
-		unit = next;
 		weightUnit.set(next);
 		saving = true;
 
@@ -35,7 +39,6 @@
 			}
 		} catch (error) {
 			console.error('Failed to save the weight unit: ', error);
-			unit = previous;
 			weightUnit.set(previous);
 		} finally {
 			saving = false;
@@ -48,8 +51,8 @@
 	size="icon"
 	on:click={toggle}
 	disabled={saving}
-	aria-label={unit === 'kg' ? 'Show weights in pounds' : 'Show weights in kilograms'}
-	title={unit === 'kg' ? 'Show weights in pounds' : 'Show weights in kilograms'}
+	aria-label={$weightUnit === 'kg' ? 'Show weights in pounds' : 'Show weights in kilograms'}
+	title={$weightUnit === 'kg' ? 'Show weights in pounds' : 'Show weights in kilograms'}
 >
-	<span class="text-sm font-semibold">{unit}</span>
+	<span class="text-sm font-semibold">{$weightUnit}</span>
 </Button>
