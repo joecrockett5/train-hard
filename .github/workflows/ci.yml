@@ -192,29 +192,42 @@ jobs:
           curl --silent --cookie "profileId=${profile}" \
             http://localhost:3000/ | grep -q '<html lang="en" class="">'
 
-      - name: Toggling the theme stores it on the profile
+      - name: Toggling a preference stores it on the profile
         run: |
           set -euo pipefail
 
           # The toggle's own path: the frontend endpoint, which updates the
           # profile, drops its cached copy and re-sets the cookie.
-          curl --fail --silent -X PUT http://localhost:3000/api/theme \
+          curl --fail --silent -X PUT http://localhost:3000/api/preferences \
             -H 'Content-Type: application/json' --cookie "profileId=${profile}" \
             -d '{"darkMode":true}' | grep -q '"darkMode":true'
 
           curl --fail --silent "http://localhost:8000/api/profiles/${profile}" \
             | python3 -c 'import json,sys; assert json.load(sys.stdin)["dark_mode"] is True, "not stored on the profile"'
 
-          curl --fail --silent -X PUT http://localhost:3000/api/theme \
+          curl --fail --silent -X PUT http://localhost:3000/api/preferences \
             -H 'Content-Type: application/json' --cookie "profileId=${profile}" \
             -d '{"darkMode":false}' | grep -q '"darkMode":false'
 
           # A non-boolean is refused, and without a profile there is nothing
           # to store it on.
-          [ "$(curl --silent -o /dev/null -w '%{http_code}' -X PUT http://localhost:3000/api/theme \
+          [ "$(curl --silent -o /dev/null -w '%{http_code}' -X PUT http://localhost:3000/api/preferences \
             -H 'Content-Type: application/json' --cookie "profileId=${profile}" -d '{"darkMode":"yes"}')" = "400" ]
-          [ "$(curl --silent -o /dev/null -w '%{http_code}' -X PUT http://localhost:3000/api/theme \
+          [ "$(curl --silent -o /dev/null -w '%{http_code}' -X PUT http://localhost:3000/api/preferences \
             -H 'Content-Type: application/json' -d '{"darkMode":true}')" = "401" ]
+
+          # The weight unit rides the same route. Storage stays in kilograms
+          # whichever is chosen, so this only has to reach the profile.
+          curl --fail --silent -X PUT http://localhost:3000/api/preferences \
+            -H 'Content-Type: application/json' --cookie "profileId=${profile}" \
+            -d '{"weightUnit":"lbs"}' | grep -q '"weightUnit":"lbs"'
+
+          curl --fail --silent "http://localhost:8000/api/profiles/${profile}" \
+            | python3 -c 'import json,sys; assert json.load(sys.stdin)["weight_unit"] == "lbs", "not stored on the profile"'
+
+          curl --fail --silent -X PUT http://localhost:3000/api/preferences \
+            -H 'Content-Type: application/json' --cookie "profileId=${profile}" \
+            -d '{"weightUnit":"kg"}' > /dev/null
 
       - name: Service logs on failure
         if: failure()
@@ -269,6 +282,25 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # The two branches build the same app with different interface
+      # strings, so their images must never share a tag: pulling an update
+      # must not silently change the language the app is in.
+      #
+      # The branch tags (`main`, `japanese`) and `latest` already separate
+      # them. A version tag does not -- `v1.2.0` cut on either branch would
+      # produce the same `1.2.0` and one would overwrite the other -- so
+      # releases off `japanese` carry a suffix.
+      - name: UI language
+        id: lang
+        run: |
+          if [ "$GITHUB_REF_NAME" = "japanese" ] || [ "${{ github.event.base_ref }}" = "refs/heads/japanese" ]; then
+            echo "language=japanese" >> "$GITHUB_OUTPUT"
+            echo "suffix=-ja" >> "$GITHUB_OUTPUT"
+          else
+            echo "language=english" >> "$GITHUB_OUTPUT"
+            echo "suffix=" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Tags and labels
         id: meta
         uses: docker/metadata-action@v5
@@ -276,10 +308,12 @@ jobs:
           images: ${{ steps.image.outputs.name }}
           tags: |
             type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{version}},suffix=${{ steps.lang.outputs.suffix }}
+            type=semver,pattern={{major}}.{{minor}},suffix=${{ steps.lang.outputs.suffix }}
             type=sha,format=long
             type=raw,value=latest,enable={{is_default_branch}}
+          labels: |
+            net.train-hard.ui-language=${{ steps.lang.outputs.language }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
