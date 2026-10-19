@@ -12,7 +12,9 @@ import { build, files, version } from '$service-worker';
  */
 
 const ORIGIN = 'https://training.jmedia';
-const PRECACHE = [...build, ...files];
+/** Mirrors the worker's own list, so a change there has to be made twice. */
+const OS_FETCHED = ['/manifest.webmanifest', '/apple-touch-icon.png', '/favicon.png'];
+const PRECACHE = [...build, ...files].filter((path) => !OS_FETCHED.includes(path));
 const CACHE = `hard-cache-${version}`;
 
 type Listener = (event: unknown) => void;
@@ -254,6 +256,27 @@ describe('fetching a page', () => {
 describe('requests the worker keeps out of', () => {
 	it('leaves API calls to the network', () => {
 		expect(handleFetch(new Request(`${ORIGIN}/api/workouts`))).toBeUndefined();
+	});
+
+	it.each(OS_FETCHED)('leaves %s to the network, because the OS fetches it', (path) => {
+		// A blank Home Screen icon on a phone where the same URL loaded fine
+		// in a tab. Safari fetches the icon from outside any page, and
+		// whatever the worker did with that request, it was not a PNG.
+		expect(handleFetch(new Request(absolute(path)))).toBeUndefined();
+	});
+
+	it('does not precache them either, so none can be served from the cache', async () => {
+		await install();
+
+		for (const path of OS_FETCHED) {
+			expect([...cached().entries.keys()]).not.toContain(absolute(path));
+		}
+	});
+
+	it('still precaches the assets the app itself uses', async () => {
+		await install();
+
+		expect([...cached().entries.keys()]).toContain(absolute('/hard-logo.png'));
 	});
 
 	it('leaves anything that is not a GET', () => {

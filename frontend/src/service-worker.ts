@@ -1,7 +1,7 @@
 /// <reference types="@sveltejs/kit" />
 /// <reference lib="webworker" />
 
-import { build, files, version } from '$service-worker';
+import { base, build, files, version } from '$service-worker';
 
 /**
  * Caches the app's own assets so it loads instantly and survives a bad
@@ -19,8 +19,32 @@ const worker = self as unknown as ServiceWorkerGlobalScope;
 // previous one is deleted on activate.
 const CACHE = `hard-cache-${version}`;
 
-// `build` is the compiled JS and CSS, `files` is everything in static/.
-const PRECACHE = [...build, ...files];
+/**
+ * The icons and the manifest, which the operating system fetches itself.
+ *
+ * Safari asks for these to add the app to the Home Screen, and it asks from
+ * outside any open page -- so the request is one the worker has no context
+ * for and no way to improve on. Serving them through the worker only adds a
+ * way for the OS to be handed a failure instead of a PNG, which is how a
+ * Home Screen icon ends up blank while the same file loads fine in a tab.
+ *
+ * They are small, they rarely change, and the HTTP cache already handles
+ * them, so there is nothing to gain by intercepting them either.
+ *
+ * Prefixed with `base` because `build` and `files` are, and these are
+ * compared against both those lists and a request's own pathname.
+ */
+const OS_FETCHED = [
+	'/manifest.webmanifest',
+	'/apple-touch-icon.png',
+	'/favicon.png',
+	'/icon-192.png',
+	'/icon-512.png'
+].map((path) => `${base}${path}`);
+
+// `build` is the compiled JS and CSS, `files` is everything in static/. The
+// OS-fetched ones are left out so they are never served from the cache.
+const PRECACHE = [...build, ...files].filter((path) => !OS_FETCHED.includes(path));
 
 /**
  * Precaches file by file, tolerating any that fail.
@@ -74,6 +98,12 @@ worker.addEventListener('fetch', (event) => {
 
 	// Anything under /api is live data. Let it go to the network untouched.
 	if (url.pathname.startsWith('/api/')) {
+		return;
+	}
+
+	// Likewise the icons and the manifest: the OS asks for these, and nothing
+	// the worker can do with the request helps.
+	if (OS_FETCHED.includes(url.pathname)) {
 		return;
 	}
 

@@ -9,7 +9,18 @@
 			iOS applies its own rounded mask, and a transparent corner would
 			be composited onto black.
 		-->
-		<link rel="apple-touch-icon" sizes="180x180" href="%sveltekit.assets%/apple-touch-icon.png" />
+		<!--
+			`?v` is a cache buster, not decoration. iOS remembers what it got
+			for an icon URL per origin, including having got nothing, and that
+			memory survives clearing Safari's website data -- so a phone that
+			once failed to fetch this keeps showing a blank Home Screen tile
+			until the URL changes. Bump it if that happens again.
+		-->
+		<link
+			rel="apple-touch-icon"
+			sizes="180x180"
+			href="%sveltekit.assets%/apple-touch-icon.png?v=2"
+		/>
 		<link rel="manifest" href="%sveltekit.assets%/manifest.webmanifest" />
 		<meta name="theme-color" content="#e4572e" />
 		<meta name="mobile-web-app-capable" content="yes" />

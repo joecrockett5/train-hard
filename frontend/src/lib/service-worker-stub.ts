@@ -8,7 +8,14 @@
  * tests care about how it treats an asset, not which assets a build produced.
  */
 export const build = ['/_app/immutable/entry/app.js', '/_app/immutable/assets/app.css'];
-export const files = ['/apple-touch-icon.png', '/manifest.webmanifest'];
+// `hard-logo.png` is used by the app itself; the rest are fetched by the OS,
+// which the worker treats differently, so both kinds are represented here.
+export const files = [
+	'/hard-logo.png',
+	'/apple-touch-icon.png',
+	'/favicon.png',
+	'/manifest.webmanifest'
+];
 export const version = 'test-version';
 export const prerendered: string[] = [];
 export const base = '';
