@@ -8,6 +8,8 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import MenuIcon from '$lib/svg/menu-icon.svelte';
 	import ThemeToggle from '$lib/hard-components/theme-toggle.svelte';
+	import UnitToggle from '$lib/hard-components/unit-toggle.svelte';
+	import { weightUnit } from '$lib/units';
 	import type { WorkoutInfo } from '$lib/types';
 
 	export let data;
@@ -23,6 +25,16 @@
 	afterNavigate(() => {
 		window.scrollTo(0, 0);
 	});
+
+	/**
+	 * The unit every weight in the app is shown in, from the active profile.
+	 *
+	 * Set here rather than passed down: a set's weight is rendered several
+	 * components deep, and this follows the profile exactly as the theme
+	 * does. Reassigned on navigation, which is also what picks up a profile
+	 * switch.
+	 */
+	$: weightUnit.set(data.profile?.weightUnit ?? 'kg');
 
 	let sheetOpen = false;
 	let recent: WorkoutInfo[] = [];
@@ -153,6 +165,7 @@
 						{data.profile.name} · Switch profile
 					</Button>
 				</form>
+				<UnitToggle unit={data.profile.weightUnit} />
 				<ThemeToggle darkMode={data.profile.darkMode} />
 			</div>
 		</Sheet.Content>

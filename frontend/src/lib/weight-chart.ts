@@ -6,14 +6,11 @@
  * here rather than in the component means the scaling and the axis rounding
  * can be tested without rendering anything.
  *
- * Every weight is kilograms. See `BodyWeight` on the backend for why a
- * weigh-in carries no unit of its own.
+ * Weights are stored in kilograms; the chart plots whatever unit the profile
+ * is showing, which the caller converts before handing them over.
  */
 
 import type { BodyWeight } from '$lib/types';
-
-/** The unit every weight on this page is in. */
-export const UNIT = 'kg';
 
 /**
  * The drawing surface, in viewBox units. The component scales it to the
@@ -189,11 +186,6 @@ function pickXTicks(points: ChartPoint[]): { label: string; x: number }[] {
 /** Trims the float noise that `toX`/`toY` leave in the path data. */
 function round(value: number): number {
 	return Math.round(value * 100) / 100;
-}
-
-/** Up to one decimal place, with no trailing `.0`. */
-export function formatWeight(weight: number): string {
-	return (Math.round(weight * 10) / 10).toString();
 }
 
 /**

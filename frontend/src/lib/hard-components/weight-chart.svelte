@@ -1,20 +1,19 @@
 <script lang="ts">
 	import * as Card from '$lib/components/ui/card';
 	import type { BodyWeight } from '$lib/types';
-	import {
-		buildChart,
-		CHART_HEIGHT,
-		CHART_WIDTH,
-		formatWeight,
-		shortDate,
-		summarise,
-		UNIT
-	} from '$lib/weight-chart';
+	import { buildChart, CHART_HEIGHT, CHART_WIDTH, shortDate, summarise } from '$lib/weight-chart';
+	import { formatWeight, toDisplayWeight, weightUnit } from '$lib/units';
 
 	export let entries: BodyWeight[] = [];
 
-	$: chart = buildChart(entries);
-	$: summary = summarise(entries);
+	// Stored in kilograms, plotted in whatever the profile is showing, so the
+	// axis and the summary both move when the unit is toggled.
+	$: shown = entries.map((entry) => ({
+		...entry,
+		weight: toDisplayWeight(entry.weight, $weightUnit)
+	}));
+	$: chart = buildChart(shown);
+	$: summary = summarise(shown);
 </script>
 
 <Card.Root class="mt-4">
@@ -22,9 +21,9 @@
 		<Card.Title>Progress</Card.Title>
 		<Card.Description>
 			{#if summary}
-				{formatWeight(summary.current)}{UNIT} on {shortDate(summary.latest.entryDate)}
+				{formatWeight(summary.current)}{$weightUnit} on {shortDate(summary.latest.entryDate)}
 				{#if summary.change !== null}
-					· {summary.change >= 0 ? '+' : '−'}{formatWeight(Math.abs(summary.change))}{UNIT}
+					· {summary.change >= 0 ? '+' : '−'}{formatWeight(Math.abs(summary.change))}{$weightUnit}
 					since the first entry
 				{/if}
 			{:else}
@@ -38,7 +37,7 @@
 				viewBox="0 0 {CHART_WIDTH} {CHART_HEIGHT}"
 				class="h-auto w-full overflow-visible"
 				role="img"
-				aria-label="Body weight over time, in {UNIT}"
+				aria-label="Body weight over time, in {$weightUnit}"
 			>
 				<defs>
 					<!--
@@ -105,7 +104,9 @@
 
 				{#each chart.points as point}
 					<circle cx={point.x} cy={point.y} r="3.5" fill="url(#weight-chart-brand)">
-						<title>{shortDate(point.entry.entryDate)}: {formatWeight(point.weight)}{UNIT}</title>
+						<title
+							>{shortDate(point.entry.entryDate)}: {formatWeight(point.weight)}{$weightUnit}</title
+						>
 					</circle>
 				{/each}
 			</svg>

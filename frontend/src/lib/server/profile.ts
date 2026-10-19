@@ -73,6 +73,7 @@ export type Profile = {
 	objectId: string;
 	name: string;
 	darkMode: boolean;
+	weightUnit: 'kg' | 'lbs';
 };
 
 /**
@@ -117,14 +118,16 @@ type RawProfile = {
 	object_id: string;
 	name: string;
 	dark_mode?: boolean;
+	weight_unit?: 'kg' | 'lbs';
 };
 
 export function toProfile(raw: RawProfile): Profile {
 	return {
 		objectId: raw.object_id,
 		name: raw.name,
-		// Absent on rows written before the field existed.
-		darkMode: raw.dark_mode ?? false
+		// Both absent on rows written before each field existed.
+		darkMode: raw.dark_mode ?? false,
+		weightUnit: raw.weight_unit ?? 'kg'
 	};
 }
 

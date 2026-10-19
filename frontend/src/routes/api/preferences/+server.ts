@@ -9,7 +9,7 @@ import {
 } from '$lib/server/profile';
 
 /**
- * Stores the active profile's theme.
+ * Stores the active profile's display preferences.
  *
  * Profiles live outside the /api proxy routes -- those all attach an
  * X-Profile-Id header and a profile is not owned by a profile -- so this
@@ -17,8 +17,12 @@ import {
  *
  * The backend's PUT replaces the whole object and rejects any change to the
  * core attributes, so the current profile is read first and sent back with
- * only `dark_mode` altered. That is two round trips for one toggle, which is
- * acceptable for something clicked rarely and by hand.
+ * only the named preferences altered. That is two round trips for one
+ * toggle, which is acceptable for something clicked rarely and by hand.
+ *
+ * One route for both preferences rather than one each: they are the same
+ * read-modify-write against the same object, and a second copy would be a
+ * second place to get the cache invalidation wrong.
  */
 export const PUT: RequestHandler = async ({ request, locals, cookies, url }) => {
 	const profileId = locals.profileId;
@@ -27,10 +31,18 @@ export const PUT: RequestHandler = async ({ request, locals, cookies, url }) => 
 		return new Response('No profile selected', { status: 401 });
 	}
 
-	const { darkMode } = await request.json();
+	const { darkMode, weightUnit } = await request.json();
 
-	if (typeof darkMode !== 'boolean') {
+	if (darkMode !== undefined && typeof darkMode !== 'boolean') {
 		return new Response('darkMode must be a boolean', { status: 400 });
+	}
+
+	if (weightUnit !== undefined && weightUnit !== 'kg' && weightUnit !== 'lbs') {
+		return new Response('weightUnit must be kg or lbs', { status: 400 });
+	}
+
+	if (darkMode === undefined && weightUnit === undefined) {
+		return new Response('Nothing to change', { status: 400 });
 	}
 
 	const current = await fetch(`${env.HARD_API}/profiles/${profileId}`);
@@ -44,7 +56,11 @@ export const PUT: RequestHandler = async ({ request, locals, cookies, url }) => 
 	const updated = await fetch(`${env.HARD_API}/profiles/${profileId}`, {
 		method: 'PUT',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ ...raw, dark_mode: darkMode })
+		body: JSON.stringify({
+			...raw,
+			...(darkMode === undefined ? {} : { dark_mode: darkMode }),
+			...(weightUnit === undefined ? {} : { weight_unit: weightUnit })
+		})
 	});
 
 	if (!updated.ok) {
@@ -59,5 +75,5 @@ export const PUT: RequestHandler = async ({ request, locals, cookies, url }) => 
 
 	cookies.set(THEME_COOKIE, profile.darkMode ? 'dark' : 'light', themeCookieOptions(url));
 
-	return json({ darkMode: profile.darkMode });
+	return json({ darkMode: profile.darkMode, weightUnit: profile.weightUnit });
 };

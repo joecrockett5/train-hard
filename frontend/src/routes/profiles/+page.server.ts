@@ -8,7 +8,8 @@ import {
 	PROFILE_COOKIE,
 	profileCookieOptions,
 	THEME_COOKIE,
-	themeCookieOptions
+	themeCookieOptions,
+	toProfile
 } from '$lib/server/profile';
 import type { PageServerLoad } from './$types';
 
@@ -110,13 +111,10 @@ export const actions: Actions = {
 			});
 		}
 
-		const created: BackendProfile = await response.json();
-		cacheProfile({
-			objectId: created.object_id,
-			name: created.name,
-			darkMode: created.dark_mode ?? false
-		});
-		cookies.set(PROFILE_COOKIE, created.object_id, profileCookieOptions(url));
+		// Through the shared mapper, so a new preference field does not need
+		// remembering in a second place.
+		const created = cacheProfile(toProfile(await response.json()));
+		cookies.set(PROFILE_COOKIE, created.objectId, profileCookieOptions(url));
 		cookies.set(THEME_COOKIE, 'light', themeCookieOptions(url));
 		redirect(303, redirectTo);
 	},

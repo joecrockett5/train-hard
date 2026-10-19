@@ -47,16 +47,22 @@ describe('themeClass', () => {
 
 describe('toProfile', () => {
 	it("renames the backend's fields", () => {
-		expect(toProfile({ object_id: 'p1', name: 'Joe', dark_mode: true })).toEqual({
+		expect(
+			toProfile({ object_id: 'p1', name: 'Joe', dark_mode: true, weight_unit: 'lbs' })
+		).toEqual({
 			objectId: 'p1',
 			name: 'Joe',
-			darkMode: true
+			darkMode: true,
+			weightUnit: 'lbs'
 		});
 	});
 
-	it('defaults dark mode off when the field is absent', () => {
-		// A profile row written before dark_mode existed has no such key, and
-		// must not come back with darkMode undefined.
-		expect(toProfile({ object_id: 'p1', name: 'Joe' }).darkMode).toBe(false);
+	it('defaults the preferences when their fields are absent', () => {
+		// A profile row written before each field existed has no such key, and
+		// must not come back undefined.
+		const profile = toProfile({ object_id: 'p1', name: 'Joe' });
+
+		expect(profile.darkMode).toBe(false);
+		expect(profile.weightUnit).toBe('kg');
 	});
 });

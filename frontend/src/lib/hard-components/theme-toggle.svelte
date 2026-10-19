@@ -25,7 +25,7 @@
 		saving = true;
 
 		try {
-			const response = await fetch('/api/theme', {
+			const response = await fetch('/api/preferences', {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ darkMode: next })

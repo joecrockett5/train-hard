@@ -39,7 +39,12 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 
 	if (lookup.status === 'unavailable') {
 		return {
-			profile: { objectId: locals.profileId, name: locals.profileId, darkMode: false }
+			profile: {
+				objectId: locals.profileId,
+				name: locals.profileId,
+				darkMode: false,
+				weightUnit: 'kg' as const
+			}
 		};
 	}
 

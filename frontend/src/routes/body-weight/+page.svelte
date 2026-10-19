@@ -7,7 +7,8 @@
 	import BodyWeightEntry from '$lib/hard-components/body-weight-entry.svelte';
 	import WeightChart from '$lib/hard-components/weight-chart.svelte';
 	import Pager, { PAGE_SIZE } from '$lib/hard-components/pager.svelte';
-	import { sortEntries, UNIT } from '$lib/weight-chart';
+	import { sortEntries } from '$lib/weight-chart';
+	import { toStoredWeight, weightUnit } from '$lib/units';
 	import { todayIso } from '$lib/dates';
 	import type { BodyWeight } from '$lib/types';
 
@@ -39,13 +40,13 @@
 			},
 			body: JSON.stringify({
 				entryDate: newDate,
-				weight: Number(newWeight),
+				weight: toStoredWeight(Number(newWeight), $weightUnit),
 				notes: newNotes
 			})
 		});
 
 		if (!response.ok) {
-			console.error(`Unable to log a weight of ${newWeight}${UNIT}`);
+			console.error(`Unable to log a weight of ${newWeight}${$weightUnit}`);
 			return;
 		}
 
@@ -86,8 +87,8 @@
 <NewItem item="Weigh-in">
 	<label for="date">Date</label>
 	<Input type="date" bind:value={newDate} />
-	<label for="weight">Weight ({UNIT})</label>
-	<Input type="number" step="0.1" min="0" placeholder="Weight" bind:value={newWeight} />
+	<label for="weight">Weight ({$weightUnit})</label>
+	<Input type="number" step="0.01" min="0" placeholder="Weight" bind:value={newWeight} />
 	<label for="notes">Notes</label>
 	<Input placeholder="Notes" bind:value={newNotes} />
 	<br />

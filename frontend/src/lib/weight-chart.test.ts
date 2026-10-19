@@ -3,7 +3,6 @@ import {
 	buildChart,
 	CHART_HEIGHT,
 	CHART_WIDTH,
-	formatWeight,
 	PADDING,
 	shortDate,
 	sortEntries,
@@ -186,13 +185,6 @@ describe('shortDate', () => {
 		// Parsed naively as a Date, "2026-01-01" is UTC midnight, which is the
 		// 31st of December west of Greenwich.
 		expect(shortDate('2026-01-01')).toBe('1 Jan');
-	});
-});
-
-describe('formatWeight', () => {
-	it('keeps one decimal and drops a trailing zero', () => {
-		expect(formatWeight(80.14)).toBe('80.1');
-		expect(formatWeight(80)).toBe('80');
 	});
 });
 
