@@ -97,6 +97,32 @@ class TestProfiles:
         assert created.status_code == 201, created.text
         assert created.json()["dark_mode"] is False
 
+    def test_weight_unit_defaults_to_kilograms(self, client):
+        profile_id = profile(client)
+
+        assert client.get(f"/api/profiles/{profile_id}").json()["weight_unit"] == "kg"
+
+    def test_weight_unit_is_stored_on_the_profile(self, client):
+        profile_id = profile(client)
+        current = client.get(f"/api/profiles/{profile_id}").json()
+
+        updated = client.put(
+            f"/api/profiles/{profile_id}", json={**current, "weight_unit": "lbs"}
+        )
+
+        assert updated.status_code == 200, updated.text
+        assert client.get(f"/api/profiles/{profile_id}").json()["weight_unit"] == "lbs"
+
+    def test_an_unknown_weight_unit_is_rejected(self, client):
+        profile_id = profile(client)
+        current = client.get(f"/api/profiles/{profile_id}").json()
+
+        response = client.put(
+            f"/api/profiles/{profile_id}", json={**current, "weight_unit": "stone"}
+        )
+
+        assert response.status_code == 422
+
     def test_delete_removes_the_profiles_data(self, client):
         profile_id = profile(client)
         client.post("/api/workouts", json=make_workout(), headers=headers(profile_id))
@@ -612,3 +638,104 @@ class TestExerciseTags:
 
         assert client.get("/api/tags", headers=auth).json() == []
         assert client.get("/api/tag-joins", headers=auth).json() == []
+
+
+class TestCardio:
+    """
+    Timed exercises. The kind lives on the exercise; its sets carry a
+    duration in minutes instead of reps at a weight.
+    """
+
+    def test_an_exercise_defaults_to_reps(self, client):
+        auth = headers(profile(client))
+
+        created = client.post(
+            "/api/exercises", json={"name": "Bench", "description": ""}, headers=auth
+        )
+
+        assert created.status_code == 201, created.text
+        assert created.json()["kind"] == "reps"
+
+    def test_an_exercise_can_be_timed(self, client):
+        auth = headers(profile(client))
+
+        created = client.post(
+            "/api/exercises",
+            json={"name": "Treadmill", "description": "", "kind": "time"},
+            headers=auth,
+        )
+
+        assert created.status_code == 201, created.text
+        assert created.json()["kind"] == "time"
+        assert client.get("/api/exercises", headers=auth).json()[0]["kind"] == "time"
+
+    def test_an_unknown_kind_is_rejected(self, client):
+        auth = headers(profile(client))
+
+        response = client.post(
+            "/api/exercises",
+            json={"name": "Treadmill", "description": "", "kind": "distance"},
+            headers=auth,
+        )
+
+        assert response.status_code == 422
+
+    def test_a_set_records_a_duration(self, client):
+        auth = headers(profile(client))
+
+        created = client.post(
+            "/api/sets",
+            json={
+                "set_type": "working",
+                "duration": 5.5,
+                "exercise_join_id": "00000000-0000-0000-0000-000000000001",
+            },
+            headers=auth,
+        )
+
+        assert created.status_code == 201, created.text
+        body = created.json()
+        assert body["duration"] == 5.5
+        # The reps fields are still present, defaulted, since a set is one
+        # flat item whichever kind of exercise it belongs to.
+        assert body["reps"] == 0
+        assert body["weight"] == 0
+
+    def test_a_fractional_duration_round_trips(self, client):
+        """
+        Minutes to one decimal place, which needs the same Decimal handling
+        as a weight -- `Decimal(4.1)` overruns what DynamoDB accepts.
+        """
+        auth = headers(profile(client))
+
+        created = client.post(
+            "/api/sets",
+            json={
+                "set_type": "working",
+                "duration": 4.1,
+                "exercise_join_id": "00000000-0000-0000-0000-000000000001",
+            },
+            headers=auth,
+        )
+
+        assert created.status_code == 201, created.text
+        assert created.json()["duration"] == 4.1
+
+    def test_a_reps_set_still_works_without_a_duration(self, client):
+        auth = headers(profile(client))
+
+        created = client.post(
+            "/api/sets",
+            json={
+                "set_type": "working",
+                "weight": 80,
+                "unit": "kg",
+                "reps": 5,
+                "notes": "",
+                "exercise_join_id": "00000000-0000-0000-0000-000000000001",
+            },
+            headers=auth,
+        )
+
+        assert created.status_code == 201, created.text
+        assert created.json()["duration"] == 0
