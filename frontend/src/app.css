@@ -92,6 +92,35 @@
 	body {
 		@apply bg-background text-foreground;
 	}
+
+	/*
+	 * A date input is a native control, and the shared Input component sets
+	 * `display: flex` on it. That turns the control's own parts -- the day,
+	 * month and year fields and the picker button -- into flex items, so they
+	 * pack to the left and the calendar button lands in the middle of the
+	 * field rather than at its end. Safari goes further and lets the control
+	 * keep an intrinsic width, so next to the weight and notes fields the
+	 * date box reads as wider and its text as misaligned.
+	 *
+	 * `display: block` hands the layout back to the control. The rest is
+	 * WebKit-only: the value is centred with margins of its own by default,
+	 * which is what pushes the date off the line the other fields sit on.
+	 */
+	input[type='date'] {
+		display: block;
+		min-width: 0;
+		-webkit-appearance: none;
+		appearance: none;
+	}
+
+	input[type='date']::-webkit-date-and-time-value {
+		margin: 0;
+		text-align: left;
+	}
+
+	input[type='date']::-webkit-calendar-picker-indicator {
+		margin-left: auto;
+	}
 }
 
 @layer components {
