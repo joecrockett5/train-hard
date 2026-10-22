@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import type { Exercise, Tag, WorkoutInfo } from '$lib/types';
+import type { Exercise, Tag, Template, WorkoutInfo } from '$lib/types';
 import type { PageServerLoad } from './$types';
 
 type DetailResponse = {
@@ -13,9 +13,10 @@ export const load = (async ({ fetch, params }) => {
 	// for its sets, each of which became one or two further backend calls.
 	// The tags are a second: the exercises carry their own, but creating one
 	// from the picker has to offer every tag, including unused ones.
-	const [response, tagsResponse] = await Promise.all([
+	const [response, tagsResponse, templatesResponse] = await Promise.all([
 		fetch(`/api/workouts/${params.workoutId}/detail`),
-		fetch('/api/tags')
+		fetch('/api/tags'),
+		fetch('/api/templates')
 	]);
 
 	if (!response.ok) {
@@ -23,6 +24,9 @@ export const load = (async ({ fetch, params }) => {
 	}
 
 	const tags: Tag[] = tagsResponse.ok ? await tagsResponse.json() : [];
+	// Empty rather than fatal: without templates the picker simply offers
+	// none, which is what a profile that has made none sees.
+	const templates: Template[] = templatesResponse.ok ? await templatesResponse.json() : [];
 
 	const { workoutInfo, exercises, allExercises }: DetailResponse = await response.json();
 
@@ -44,5 +48,5 @@ export const load = (async ({ fetch, params }) => {
 		);
 	});
 
-	return { workoutInfo, exercises, allExercises, tags };
+	return { workoutInfo, exercises, allExercises, tags, templates };
 }) satisfies PageServerLoad;

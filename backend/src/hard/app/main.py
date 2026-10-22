@@ -10,6 +10,7 @@ from hard.app.routes import (
     sets,
     tag_joins,
     tags,
+    template_joins,
     templates,
     workouts,
 )
@@ -32,6 +33,7 @@ api.include_router(tags.router)
 api.include_router(exercise_joins.router)
 api.include_router(tag_joins.router)
 api.include_router(templates.router)
+api.include_router(template_joins.router)
 api.include_router(profiles.router)
 api.include_router(body_weights.router)
 

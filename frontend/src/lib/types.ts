@@ -45,9 +45,23 @@ export type WorkoutInfo = Base & {
 	tags?: Tag[];
 };
 
+/**
+ * A named list of exercises to start a workout from.
+ *
+ * `description` is the backend's field name; the UI labels it Notes, the
+ * same thing a workout calls its own free text.
+ */
 export type Template = Base & {
 	name: string;
 	description: string;
+	tags?: Tag[];
+	/** How many exercises it holds. Absent from endpoints that do not count. */
+	exerciseCount?: number;
+};
+
+export type TemplateJoin = Base & {
+	templateId: string;
+	exerciseId: string;
 };
 
 /** Always kilograms -- unlike a set, a weigh-in carries no unit. */
@@ -94,6 +108,11 @@ export type RawExerciseJoin = RawBase & {
 export type RawTagJoin = RawBase & {
 	target_id: string;
 	tag_id: string;
+};
+
+export type RawTemplateJoin = RawBase & {
+	template_id: string;
+	exercise_id: string;
 };
 
 export type RawBodyWeight = RawBase & {

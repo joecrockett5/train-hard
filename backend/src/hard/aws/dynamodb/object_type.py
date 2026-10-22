@@ -15,6 +15,7 @@ class ObjectType(Enum):
     # Joins
     TAG_JOIN = "TagJoin"
     EXCERCISE_JOIN = "ExerciseJoin"
+    TEMPLATE_JOIN = "TemplateJoin"
 
     @classmethod
     def from_object_class(cls, object_class):

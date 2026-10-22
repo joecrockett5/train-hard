@@ -22,6 +22,13 @@ from hard.models.exercise_join import ExerciseJoin
 from hard.models.set import Set
 from hard.models.tag import Tag
 from hard.models.tag_join import TagJoin
+from hard.models.template import Template
+from hard.models.template_detail import (
+    ExerciseInTemplate,
+    TemplateDetail,
+    TemplateWithTags,
+)
+from hard.models.template_join import TemplateJoin
 from hard.models.workout import Workout
 from hard.models.workout_detail import (
     ExerciseWithSets,
@@ -293,6 +300,42 @@ def sets_from_ids(
     return sets
 
 
+def template_join_filter(
+    user: User,
+    /,
+    exercise_id: Optional[UUID] = None,
+    template_id: Optional[UUID] = None,
+) -> list[TemplateJoin]:
+    """The joins tying exercises to templates, narrowed by either end."""
+    if not (exercise_id or template_id):
+        raise ValueError(
+            "Invalid Usage: `template_join_filter` requires either `exercise_id` or `template_id` or both, None provided"
+        )
+
+    db = get_db_instance()
+
+    partition = PARTITION_TEMPLATE.format(
+        **{
+            "user_id": user.id,
+            "object_type": ObjectType.TEMPLATE_JOIN.value,
+        }
+    )
+
+    filter = None
+    if exercise_id:
+        filter = Attr("exercise_id").eq(str(exercise_id))
+    if template_id:
+        template_filter = Attr("template_id").eq(str(template_id))
+        filter = filter & template_filter if filter else template_filter
+
+    json_items = db.query(
+        key_expression=Key(DB_PARTITION).eq(partition),
+        filter_expression=filter,
+    )
+
+    return [TemplateJoin.from_db(item) for item in json_items]
+
+
 def tag_join_filter(
     user: User,
     /,
@@ -445,6 +488,71 @@ def workout_detail(user: User, workout_id: UUID) -> WorkoutDetail:
 
     return WorkoutDetail(
         workout=workout,
+        exercises=exercises,
+        all_exercises=tagged,
+    )
+
+
+def templates_with_tags(user: User) -> list[TemplateWithTags]:
+    """
+    Every template the profile has, each with its tags and exercise count.
+
+    Both are read once for the whole list -- the joins in a single partition
+    query, counted here -- rather than per template.
+    """
+    grouped = tags_by_target(user)
+
+    counts: dict[str, int] = {}
+    for join in RestProcesses.get_list(TemplateJoin, user):
+        key = str(join.template_id)
+        counts[key] = counts.get(key, 0) + 1
+
+    return [
+        TemplateWithTags(
+            **template.model_dump(),
+            tags=grouped.get(str(template.object_id), []),
+            exercise_count=counts.get(str(template.object_id), 0),
+        )
+        for template in RestProcesses.get_list(Template, user)
+    ]
+
+
+def template_detail(user: User, template_id: UUID) -> TemplateDetail:
+    """
+    Everything the template page needs, built the way `workout_detail` is.
+
+    Cheaper than that one, because a template has no sets to gather: the
+    template itself, then one partition query each for the profile's template
+    joins, its exercises and its tags.
+    """
+    template = RestProcesses.get(Template, user, template_id)
+    grouped = tags_by_target(user)
+
+    joins = template_join_filter(user, template_id=template_id)
+    tagged = exercises_with_tags(user)
+    exercises_by_id = {exercise.object_id: exercise for exercise in tagged}
+
+    exercises = []
+    for join in joins:
+        exercise = exercises_by_id.get(join.exercise_id)
+        if exercise is None:
+            # A join pointing at a deleted exercise, skipped rather than
+            # failing the page -- the same call `workout_detail` makes.
+            continue
+
+        exercises.append(
+            ExerciseInTemplate(
+                **exercise.model_dump(),
+                join_id=join.object_id,
+                template_id=template_id,
+            )
+        )
+
+    return TemplateDetail(
+        template=TemplateWithTags(
+            **template.model_dump(),
+            tags=grouped.get(str(template.object_id), []),
+        ),
         exercises=exercises,
         all_exercises=tagged,
     )

@@ -158,9 +158,8 @@
 					<div class="grid grid-cols-2 items-center gap-4">
 						<Button href="/workouts" variant="secondary" class="h-20">Workouts</Button>
 						<Button href="/exercises" variant="secondary" class="h-20">Exercises</Button>
-						<Button href="/body-weight" variant="secondary" class="col-span-2 h-20"
-							>Body Weight</Button
-						>
+						<Button href="/body-weight" variant="secondary" class="h-20">Body Weight</Button>
+						<Button href="/templates" variant="secondary" class="h-20">Templates</Button>
 					</div>
 				</div>
 			</Sheet.Close>

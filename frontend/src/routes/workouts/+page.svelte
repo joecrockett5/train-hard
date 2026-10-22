@@ -12,6 +12,11 @@
 	import type { WorkoutInfo } from '$lib/types';
 	import WorkoutInfoComponent from '$lib/hard-components/workout-info.svelte';
 	import NewItem from '$lib/hard-components/new-item.svelte';
+	import ImportTemplate from '$lib/hard-components/import-template.svelte';
+	import { importTemplate } from '$lib/templates';
+	import type { Template } from '$lib/types';
+
+	export let data;
 
 	let customDate = $page.url.searchParams.get('date');
 
@@ -80,6 +85,8 @@
 
 	let newWorkoutTitle = '';
 	let newWorkoutNotes = '';
+	/** Held until the workout exists, since its exercises need a workout to join to. */
+	let chosenTemplate: Template | null = null;
 
 	async function addWorkout() {
 		const response = await fetch(`/api/workouts`, {
@@ -98,6 +105,18 @@
 			newWorkoutNotes = '';
 
 			const createdWorkout: WorkoutInfo = await response.json();
+
+			if (chosenTemplate) {
+				try {
+					await importTemplate(chosenTemplate.objectId ?? '', createdWorkout.objectId ?? '');
+				} catch (error) {
+					// The workout is made either way; saying so beats losing it
+					// because the template could not be read.
+					console.error('Could not import the template: ', error);
+				}
+				chosenTemplate = null;
+			}
+
 			workouts.push(createdWorkout);
 			workouts = workouts;
 		}
@@ -138,6 +157,22 @@
 	<Input placeholder="Title" bind:value={newWorkoutTitle} />
 	<label for="Notes">Notes</label>
 	<Input placeholder="Notes" bind:value={newWorkoutNotes} />
+
+	<ImportTemplate
+		templates={data.templates}
+		onPick={(template) => {
+			chosenTemplate = template;
+		}}
+		description="Its exercises are added once the workout is made."
+	/>
+	{#if chosenTemplate}
+		<p class="text-muted-foreground mt-2 text-sm">
+			From <span class="text-foreground font-semibold">{chosenTemplate.name}</span>
+			<button type="button" class="ml-2 underline" on:click={() => (chosenTemplate = null)}>
+				clear
+			</button>
+		</p>
+	{/if}
 	<br />
 	<Dialog.Footer>
 		<Dialog.Close class={buttonVariants({ variant: 'default' })} on:click={addWorkout}

@@ -16,10 +16,12 @@ import type {
 	RawSet,
 	RawTag,
 	RawTagJoin,
+	RawTemplateJoin,
 	Set,
 	Tag,
 	TagJoin,
 	Template,
+	TemplateJoin,
 	WorkoutInfo
 } from '$lib/types';
 
@@ -54,7 +56,29 @@ export type RawExerciseWithSets = RawExercise & {
 	sets: RawSet[];
 };
 
-export type RawTemplate = RawExercise;
+/**
+ * Was an alias for `RawExercise`, which happened to line up while a template
+ * was only a name and a description. It has tags of its own now and never had
+ * a `kind`, so it is written out.
+ */
+export type RawTemplate = {
+	user_id: string;
+	timestamp: string;
+	object_id: string;
+	object_type: string;
+	name: string;
+	description: string | null;
+	/** Absent from the endpoints that do not join the tags in. */
+	tags?: RawTag[];
+	/** Absent from the endpoints that do not count the exercises. */
+	exercise_count?: number;
+};
+
+/** An exercise inside one template, as /templates/{id}/detail returns it. */
+export type RawExerciseInTemplate = RawExercise & {
+	join_id: string | null;
+	template_id: string | null;
+};
 
 export type ExerciseJoin = {
 	userId: string;
@@ -172,7 +196,28 @@ export function toTemplate(raw: RawTemplate): Template {
 		objectType: raw.object_type,
 		objectId: raw.object_id,
 		name: raw.name,
-		description: raw.description ?? ''
+		description: raw.description ?? '',
+		tags: (raw.tags ?? []).map(toTag),
+		exerciseCount: raw.exercise_count
+	};
+}
+
+/** An exercise listed in a template: no sets, but the join that holds it there. */
+export function toExerciseInTemplate(raw: RawExerciseInTemplate): Exercise {
+	return {
+		...toExercise(raw),
+		joinId: raw.join_id ?? undefined
+	};
+}
+
+export function toTemplateJoin(raw: RawTemplateJoin): TemplateJoin {
+	return {
+		userId: raw.user_id,
+		timestamp: raw.timestamp,
+		objectType: raw.object_type,
+		objectId: raw.object_id,
+		templateId: raw.template_id,
+		exerciseId: raw.exercise_id
 	};
 }
 
@@ -217,6 +262,13 @@ export function fromSet(body: Partial<Set>, { forUpdate = false } = {}) {
 export function fromExerciseJoin(body: { workoutId?: string; exerciseId?: string }) {
 	return {
 		workout_id: body.workoutId,
+		exercise_id: body.exerciseId
+	};
+}
+
+export function fromTemplateJoin(body: { templateId?: string; exerciseId?: string }) {
+	return {
+		template_id: body.templateId,
 		exercise_id: body.exerciseId
 	};
 }

@@ -3,11 +3,13 @@
 	import ExerciseInfoComponent from '$lib/hard-components/exercise-info.svelte';
 	import WorkoutInfoComponent from '$lib/hard-components/workout-info.svelte';
 	import NewItem from '$lib/hard-components/new-item.svelte';
-	import { type Exercise, type Tag, type WorkoutInfo } from '$lib/types';
+	import { type Exercise, type Tag, type Template, type WorkoutInfo } from '$lib/types';
 	import TagFilter from '$lib/hard-components/tag-filter.svelte';
 	import { filterByTags } from '$lib/tags';
 	import Pager, { PAGE_SIZE } from '$lib/hard-components/pager.svelte';
 	import NewExercise from '$lib/hard-components/new-exercise.svelte';
+	import ImportTemplate from '$lib/hard-components/import-template.svelte';
+	import { importTemplate } from '$lib/templates';
 	import Input from '$lib/components/ui/input/input.svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { goto } from '$app/navigation';
@@ -18,6 +20,7 @@
 	let workoutInfo: WorkoutInfo;
 	let allExercises: Exercise[];
 	let allTags: Tag[];
+	let templates: Template[];
 
 	let shownWorkoutId: string | undefined;
 
@@ -42,6 +45,7 @@
 		exercises = data.exercises;
 		allExercises = data.allExercises;
 		allTags = data.tags;
+		templates = data.templates;
 	}
 
 	let possibleExercises: Exercise[] = [];
@@ -97,6 +101,28 @@
 	// that still exists.
 	$: if (search || selectedTagIds) {
 		exercisePage = 1;
+	}
+
+	/**
+	 * Pulls a template's exercises into this workout.
+	 *
+	 * Skips the ones already here, so importing part-way through a session
+	 * tops the workout up rather than listing anything twice.
+	 */
+	async function addTemplate(template: Template) {
+		try {
+			const added = await importTemplate(
+				template.objectId ?? '',
+				workoutInfo.objectId ?? '',
+				exercises.map((exercise: Exercise) => exercise.objectId ?? '')
+			);
+
+			exercises = [...exercises, ...added];
+		} catch (error) {
+			console.error(`Could not import '${template.name}': `, error);
+		}
+
+		pickerOpen = false;
 	}
 
 	const addExercise = async (exercise: Exercise) => {
@@ -184,6 +210,7 @@
 			something else, and then the offer never appeared.
 		-->
 		<NewExercise bind:allTags onCreated={createdExercise} label="New Exercise" />
+		<ImportTemplate {templates} onPick={addTemplate} />
 	</div>
 	<Pager count={possibleExercises.length} bind:page={exercisePage} />
 

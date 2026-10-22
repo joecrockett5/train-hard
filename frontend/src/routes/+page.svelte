@@ -7,7 +7,9 @@
 	import Plus from 'lucide-svelte/icons/plus';
 	import WeightChart from '$lib/hard-components/weight-chart.svelte';
 	import { todayIso } from '$lib/dates';
-	import type { WorkoutInfo } from '$lib/types';
+	import ImportTemplate from '$lib/hard-components/import-template.svelte';
+	import { importTemplate } from '$lib/templates';
+	import type { Template, WorkoutInfo } from '$lib/types';
 
 	export let data;
 
@@ -34,6 +36,9 @@
 	 * Nothing stops a second workout on the same day, which the workouts page
 	 * already allows.
 	 */
+	/** Held until the workout exists, since its exercises need a workout to join to. */
+	let chosenTemplate: Template | null = null;
+
 	async function addWorkout() {
 		if (creating || !newTitle.trim()) {
 			return;
@@ -57,6 +62,17 @@
 			}
 
 			const created: WorkoutInfo = await response.json();
+
+			if (chosenTemplate) {
+				try {
+					await importTemplate(chosenTemplate.objectId ?? '', created.objectId ?? '');
+				} catch (templateError) {
+					// The workout started either way, which is what the button
+					// promised; landing on it beats refusing over the import.
+					console.error('Could not import the template: ', templateError);
+				}
+				chosenTemplate = null;
+			}
 
 			open = false;
 			newTitle = '';
@@ -113,6 +129,22 @@
 		/>
 		<label for="notes">Notes</label>
 		<Input placeholder="Notes" bind:value={newNotes} />
+
+		<ImportTemplate
+			templates={data.templates}
+			onPick={(template) => {
+				chosenTemplate = template;
+			}}
+			description="Its exercises are added once the workout is made."
+		/>
+		{#if chosenTemplate}
+			<p class="text-muted-foreground mt-2 text-sm">
+				From <span class="text-foreground font-semibold">{chosenTemplate.name}</span>
+				<button type="button" class="ml-2 underline" on:click={() => (chosenTemplate = null)}>
+					clear
+				</button>
+			</p>
+		{/if}
 		{#if failed}
 			<p class="text-destructive text-sm">Could not start the workout. Try again.</p>
 		{/if}
