@@ -76,7 +76,13 @@
 {/each}
 
 {#if matching.length === 0}
-	<p class="text-muted-foreground mt-8 text-center text-sm">No exercises match those tags.</p>
+	<!--
+		Not "match those tags": this shows when the list is empty for any
+		reason, including a profile with no exercises at all and no filter
+		set, where blaming the tags described something the reader had not
+		done.
+	-->
+	<p class="text-muted-foreground mt-8 text-center text-sm">No exercises match.</p>
 {/if}
 
 <div class="mb-8" />
