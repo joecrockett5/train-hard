@@ -193,7 +193,12 @@
 	<title>hard: {workoutInfo.title} - {formattedDate}</title>
 </svelte:head>
 
-<WorkoutInfoComponent workout={workoutInfo} deletionCallback={deleteWorkout} />
+<WorkoutInfoComponent
+	workout={workoutInfo}
+	deletionCallback={deleteWorkout}
+	{exercises}
+	bind:allTags
+/>
 
 <NewItem
 	item="Exercise"

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { importTemplate } from './templates';
-import type { Exercise } from '$lib/types';
+import { createTemplateFrom, importTemplate } from './templates';
+import type { Exercise, Tag } from '$lib/types';
 
 function exercise(objectId: string, name: string): Partial<Exercise> {
 	return { objectId, name };
@@ -80,5 +80,108 @@ describe('importTemplate', () => {
 		await expect(
 			importTemplate('t1', 'w1', [], fetcher as unknown as typeof fetch)
 		).rejects.toThrow(/404/);
+	});
+});
+
+/** A fetch that creates a template and records the joins written against it. */
+function stubCreate({ failTag = '', failExercise = '', createStatus = 201 } = {}) {
+	const tagged: string[] = [];
+	const joined: string[] = [];
+
+	const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+		const url = String(input);
+		const body = init?.body ? JSON.parse(String(init.body)) : {};
+
+		if (url === '/api/templates') {
+			return new Response(JSON.stringify({ objectId: 't1', name: body.name }), {
+				status: createStatus
+			});
+		}
+
+		if (url === '/api/tag-joins') {
+			if (body.tagId === failTag) {
+				return new Response('no', { status: 500 });
+			}
+			tagged.push(body.tagId);
+			return new Response('{}', { status: 201 });
+		}
+
+		if (body.exerciseId === failExercise) {
+			return new Response('no', { status: 500 });
+		}
+		joined.push(body.exerciseId);
+		return new Response('{}', { status: 201 });
+	});
+
+	return { fetcher: fetcher as unknown as typeof fetch, tagged, joined };
+}
+
+function tag(objectId: string, name: string): Tag {
+	return { objectId, name } as Tag;
+}
+
+describe('createTemplateFrom', () => {
+	it('creates the template, applies its tags and adds every exercise', async () => {
+		const { fetcher, tagged, joined } = stubCreate();
+
+		const template = await createTemplateFrom(
+			{ name: 'Leg day', notes: 'Heavy', tags: [tag('x', 'Legs')] },
+			[exercise('a', 'Squat'), exercise('b', 'Leg press')] as Exercise[],
+			fetcher
+		);
+
+		expect(tagged).toEqual(['x']);
+		expect(joined).toEqual(['a', 'b']);
+		expect(template.tags).toHaveLength(1);
+		expect(template.exerciseCount).toBe(2);
+	});
+
+	it('is happy with no exercises, which is how a template is made from scratch', async () => {
+		const { fetcher, joined } = stubCreate();
+
+		const template = await createTemplateFrom({ name: 'Empty', notes: '', tags: [] }, [], fetcher);
+
+		expect(joined).toEqual([]);
+		expect(template.exerciseCount).toBe(0);
+	});
+
+	it('keeps the template when one tag fails, rather than losing the lot', async () => {
+		// A template missing a tag is two taps to fix in the edit dialog;
+		// doing the whole thing again is not.
+		const { fetcher, joined } = stubCreate({ failTag: 'y' });
+
+		const template = await createTemplateFrom(
+			{ name: 'Leg day', notes: '', tags: [tag('x', 'Legs'), tag('y', 'Push')] },
+			[exercise('a', 'Squat')] as Exercise[],
+			fetcher
+		);
+
+		expect(template.tags?.map((each) => each.objectId)).toEqual(['x']);
+		expect(joined).toEqual(['a']);
+	});
+
+	it('keeps going when one exercise fails, and counts only what landed', async () => {
+		const { fetcher, joined } = stubCreate({ failExercise: 'b' });
+
+		const template = await createTemplateFrom(
+			{ name: 'Leg day', notes: '', tags: [] },
+			[
+				exercise('a', 'Squat'),
+				exercise('b', 'Leg press'),
+				exercise('c', 'Calf raise')
+			] as Exercise[],
+			fetcher
+		);
+
+		expect(joined).toEqual(['a', 'c']);
+		expect(template.exerciseCount).toBe(2);
+	});
+
+	it('throws when the template itself cannot be made, so nothing is half-reported', async () => {
+		const { fetcher } = stubCreate({ createStatus: 500 });
+
+		await expect(
+			createTemplateFrom({ name: 'Leg day', notes: '', tags: [] }, [], fetcher)
+		).rejects.toThrow(/500/);
 	});
 });

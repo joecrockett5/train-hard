@@ -4,14 +4,15 @@
 	import Input from '$lib/components/ui/input/input.svelte';
 	import Plus from 'lucide-svelte/icons/plus';
 	import TagPicker from './tag-picker.svelte';
+	import { createTemplateFrom } from '$lib/templates';
 	import type { Tag, Template } from '$lib/types';
 
 	/**
-	 * Creating a template, with its tags.
+	 * Creating an empty template, with its tags.
 	 *
-	 * Built the same way as `NewExercise`, including why the tags are applied
-	 * after the create rather than with it: a tag is a join, so it needs an
-	 * id to point at.
+	 * The writing is `createTemplateFrom`, which the same dialog opened from
+	 * a workout uses with that workout's exercises -- here there are none
+	 * yet, and they are added on the template's own page.
 	 */
 
 	/** Every tag the profile has. Bound, so a tag made here is offered later. */
@@ -37,36 +38,7 @@
 		failed = false;
 
 		try {
-			const response = await fetch('/api/templates', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ name: trimmed, description: notes.trim() })
-			});
-
-			if (!response.ok) {
-				throw new Error(`Backend returned ${response.status}`);
-			}
-
-			const created: Template = await response.json();
-
-			// One tag that fails leaves the template made and that tag off,
-			// which the edit dialog can fix, rather than losing the lot.
-			const applied: Tag[] = [];
-			for (const tag of tags) {
-				const join = await fetch('/api/tag-joins', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ targetId: created.objectId, tagId: tag.objectId })
-				});
-
-				if (join.ok) {
-					applied.push(tag);
-				} else {
-					console.error(`Failed to tag '${created.name}' with '${tag.name}'`);
-				}
-			}
-
-			created.tags = applied;
+			const created: Template = await createTemplateFrom({ name: trimmed, notes, tags });
 
 			await onCreated(created);
 

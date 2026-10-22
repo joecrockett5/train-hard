@@ -1,10 +1,11 @@
 <script lang="ts">
-	import type { WorkoutInfo } from '$lib/types';
+	import type { Exercise, Tag, WorkoutInfo } from '$lib/types';
 	import * as Card from '$lib/components/ui/card';
 	import { buttonVariants, Button } from '$lib/components/ui/button';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import Input from '$lib/components/ui/input/input.svelte';
 	import ConfirmDelete from '$lib/hard-components/confirm-delete-workout-info.svelte';
+	import SaveAsTemplate from '$lib/hard-components/save-as-template.svelte';
 
 	export let workout: WorkoutInfo;
 	export let href: string = '';
@@ -12,6 +13,13 @@
 	// callers rendering a brief card legitimately omit it.
 	export let deletionCallback: (workout: WorkoutInfo) => void = () => {};
 	export let brief: boolean = false;
+	/**
+	 * This workout's exercises, for saving it as a template. Only the full
+	 * card offers that, so a brief one legitimately omits them.
+	 */
+	export let exercises: Exercise[] = [];
+	/** Every tag the profile has, for that dialog's picker. */
+	export let allTags: Tag[] = [];
 
 	let updatedTitle = workout.title;
 	let updatedNotes = workout.notes;
@@ -64,6 +72,15 @@
 				<Input placeholder="Title" bind:value={updatedTitle} />
 				<label for="Notes">Notes</label>
 				<Input placeholder="Notes" bind:value={updatedNotes} />
+
+				<!--
+					Here rather than on the page itself: this is a thing you
+					do to the whole workout, like deleting it, and the page
+					behind is the one you are looking at between sets. A
+					second permanent button there would be in the way of the
+					screen's actual job.
+				-->
+				<SaveAsTemplate {exercises} bind:allTags defaultName={workout.title} />
 				<br />
 				<Dialog.Footer class="flex flex-row gap-2">
 					<ConfirmDelete {deletionCallback} {workout} />
