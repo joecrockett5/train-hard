@@ -16,10 +16,12 @@ from hard.aws.dynamodb.consts import (
 )
 from hard.aws.dynamodb.handler import Attr, Key, get_db_instance
 from hard.aws.dynamodb.object_type import ObjectType
+from hard.app import photo_store
 from hard.aws.models.user import User
 from hard.models.exercise import Exercise
 from hard.models.exercise_join import ExerciseJoin
 from hard.models.set import Set
+from hard.models.progress_photo import ProgressPhoto
 from hard.models.tag import Tag
 from hard.models.tag_join import TagJoin
 from hard.models.template import Template
@@ -336,6 +338,27 @@ def template_join_filter(
     return [TemplateJoin.from_db(item) for item in json_items]
 
 
+def photos_for_body_weight(user: User, /, body_weight_id: UUID) -> list[ProgressPhoto]:
+    """The progress photos attached to one weigh-in, oldest first."""
+    db = get_db_instance()
+
+    partition = PARTITION_TEMPLATE.format(
+        **{
+            "user_id": user.id,
+            "object_type": ObjectType.PROGRESS_PHOTO.value,
+        }
+    )
+
+    json_items = db.query(
+        key_expression=Key(DB_PARTITION).eq(partition),
+        filter_expression=Attr("body_weight_id").eq(str(body_weight_id)),
+    )
+    photos = [ProgressPhoto.from_db(item) for item in json_items]
+    photos.sort(key=lambda photo: photo.timestamp)
+
+    return photos
+
+
 def tag_join_filter(
     user: User,
     /,
@@ -572,6 +595,10 @@ def delete_profile_data(profile_id: str) -> dict[str, int]:
     db = get_db_instance()
     owner = User(id=profile_id, email=f"{profile_id}@profile.local")
     removed: dict[str, int] = {}
+
+    # The rows below are only the records; the images are files, and deleting
+    # the rows would otherwise leave the whole directory behind.
+    photo_store.delete_profile_photos(profile_id)
 
     for object_type in ObjectType:
         if object_type is ObjectType.PROFILE:

@@ -11,6 +11,7 @@ class ObjectType(Enum):
     TEMPLATE = "Template"
     PROFILE = "Profile"
     BODY_WEIGHT = "BodyWeight"
+    PROGRESS_PHOTO = "ProgressPhoto"
 
     # Joins
     TAG_JOIN = "TagJoin"

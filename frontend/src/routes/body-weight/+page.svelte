@@ -10,11 +10,23 @@
 	import { sortEntries } from '$lib/weight-chart';
 	import { toStoredWeight, weightUnit } from '$lib/units';
 	import { todayIso } from '$lib/dates';
-	import type { BodyWeight } from '$lib/types';
+	import PhotoPicker from '$lib/hard-components/photo-picker.svelte';
+	import { uploadPhotos } from '$lib/photos';
+	import type { BodyWeight, ProgressPhoto } from '$lib/types';
 
 	export let data;
 
 	let entries: BodyWeight[] = data.bodyWeights;
+	let photos: ProgressPhoto[] = data.photos;
+
+	// One lookup for the list below, rebuilt whenever a photo is added or
+	// removed so a card never has to ask for its own.
+	$: photosByEntry = photos.reduce((grouped: Map<string, ProgressPhoto[]>, photo) => {
+		const forEntry = grouped.get(photo.bodyWeightId) ?? [];
+		forEntry.push(photo);
+		grouped.set(photo.bodyWeightId, forEntry);
+		return grouped;
+	}, new Map());
 
 	let page = 1;
 
@@ -27,6 +39,8 @@
 	let newDate = todayIso();
 	let newWeight = '';
 	let newNotes = '';
+	/** Held until the weigh-in exists, since a photo needs one to belong to. */
+	let newPhotos: File[] = [];
 
 	async function addEntry() {
 		if (!newWeight || !newDate) {
@@ -53,9 +67,16 @@
 		const created: BodyWeight = await response.json();
 		entries = [...entries, created];
 
+		if (newPhotos.length > 0) {
+			// The weigh-in is logged either way: a photo that fails to upload
+			// is worth a line in the console, not losing the reading.
+			photos = [...photos, ...(await uploadPhotos(newPhotos, created.objectId ?? ''))];
+		}
+
 		newDate = todayIso();
 		newWeight = '';
 		newNotes = '';
+		newPhotos = [];
 	}
 
 	async function deleteEntry(entry: BodyWeight) {
@@ -67,6 +88,8 @@
 			console.error('Failed to delete weigh-in: ', entry);
 		} else {
 			entries = entries.filter((e: BodyWeight) => e.objectId !== entry.objectId);
+			// The backend deletes their files and rows with the weigh-in.
+			photos = photos.filter((photo) => photo.bodyWeightId !== entry.objectId);
 		}
 	}
 </script>
@@ -91,6 +114,7 @@
 	<Input type="number" step="0.01" min="0" placeholder="Weight" bind:value={newWeight} />
 	<label for="notes">Notes</label>
 	<Input placeholder="Notes" bind:value={newNotes} />
+	<PhotoPicker bind:files={newPhotos} />
 	<br />
 	<Dialog.Footer>
 		<Dialog.Close class={buttonVariants({ variant: 'default' })} on:click={addEntry}
@@ -102,7 +126,14 @@
 <Pager count={newestFirst.length} bind:page />
 
 {#each viewableEntries as entry (entry.objectId)}
-	<BodyWeightEntry {entry} deletionCallback={deleteEntry} />
+	<BodyWeightEntry
+		{entry}
+		deletionCallback={deleteEntry}
+		photos={photosByEntry.get(entry.objectId ?? '') ?? []}
+		on:added={(event) => (photos = [...photos, ...event.detail])}
+		on:removed={(event) =>
+			(photos = photos.filter((photo) => photo.objectId !== event.detail.objectId))}
+	/>
 {/each}
 
 <div class="mb-8" />

@@ -7,6 +7,7 @@ from hard.app.routes import (
     exercise_joins,
     exercises,
     profiles,
+    progress_photos,
     sets,
     tag_joins,
     tags,
@@ -36,6 +37,7 @@ api.include_router(templates.router)
 api.include_router(template_joins.router)
 api.include_router(profiles.router)
 api.include_router(body_weights.router)
+api.include_router(progress_photos.router)
 
 
 @api.get("/user", response_model=User)

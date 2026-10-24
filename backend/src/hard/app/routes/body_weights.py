@@ -3,9 +3,11 @@ from uuid import UUID
 from fastapi import APIRouter
 from starlette.requests import Request
 
-from hard.app.processes import RestProcesses
+from hard.app import photo_store
+from hard.app.processes import RestProcesses, photos_for_body_weight
 from hard.aws.interfaces.fastapi import request
 from hard.models.body_weight import BodyWeight
+from hard.models.progress_photo import ProgressPhoto
 
 router = APIRouter(prefix="/body-weights")
 
@@ -59,7 +61,18 @@ async def delete_body_weight(
     req: Request,
     body_weight_id: str,
 ) -> BodyWeight:
-    user = request.get_user_claims(req)
-    deleted_body_weight = RestProcesses.delete(BodyWeight, user, UUID(body_weight_id))
+    """
+    Takes the weigh-in's progress photos with it, rows and files both.
 
-    return deleted_body_weight
+    Left behind, the files would be unreachable -- nothing but the weigh-in
+    points at them -- and would sit on the disk until someone went looking.
+    """
+    user = request.get_user_claims(req)
+
+    for photo in photos_for_body_weight(user, UUID(body_weight_id)):
+        RestProcesses.delete(ProgressPhoto, user, photo.object_id)
+        photo_store.delete(
+            user.id, photo_store.file_name_for(photo.object_id, photo.content_type)
+        )
+
+    return RestProcesses.delete(BodyWeight, user, UUID(body_weight_id))

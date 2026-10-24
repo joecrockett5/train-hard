@@ -16,7 +16,9 @@ import type {
 	RawSet,
 	RawTag,
 	RawTagJoin,
+	RawProgressPhoto,
 	RawTemplateJoin,
+	ProgressPhoto,
 	Set,
 	Tag,
 	TagJoin,
@@ -163,6 +165,20 @@ export function toTag(raw: RawTag): Tag {
 		objectId: raw.object_id,
 		name: raw.name,
 		colorHex: raw.color_hex
+	};
+}
+
+export function toProgressPhoto(raw: RawProgressPhoto): ProgressPhoto {
+	return {
+		userId: raw.user_id,
+		timestamp: raw.timestamp,
+		objectType: raw.object_type,
+		objectId: raw.object_id,
+		bodyWeightId: raw.body_weight_id,
+		contentType: raw.content_type,
+		width: raw.width,
+		height: raw.height,
+		byteSize: raw.byte_size
 	};
 }
 

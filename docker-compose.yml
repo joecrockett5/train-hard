@@ -78,6 +78,9 @@ services:
       # Set, so boto3 talks to DynamoDB Local. Unset it and the same code
       # resolves a real AWS endpoint instead.
       DYNAMODB_ENDPOINT_URL: http://dynamodb:8000
+      # Where progress photo files are written, inside the container. The
+      # volume above is what makes them outlive it.
+      PHOTO_STORAGE_PATH: ${PHOTO_STORAGE_PATH:-/photos}
       DYNAMO_TABLE_NAME: ${DYNAMO_TABLE_NAME:-hardResources}
       # Dummy, but required: boto3 refuses to sign a request without a region
       # and credentials, even against a local endpoint that ignores them.
@@ -91,6 +94,11 @@ services:
       # interfaces it would let anything on the same network read any
       # profile, since a profile id is the only credential.
       - "127.0.0.1:${BACKEND_HOST_PORT:-8000}:8000"
+    volumes:
+      # Progress photos. A named volume rather than a bind mount so it is
+      # not tied to where the repository happens to sit, and separate from
+      # the database volume so each can be backed up or moved on its own.
+      - photo-data:/photos
     depends_on:
       dynamodb:
         condition: service_healthy
@@ -205,3 +213,5 @@ services:
 volumes:
   dynamodb-data:
     name: train-hard-dynamodb-data
+  photo-data:
+    name: train-hard-photo-data

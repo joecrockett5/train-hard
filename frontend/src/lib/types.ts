@@ -64,6 +64,21 @@ export type TemplateJoin = Base & {
 	exerciseId: string;
 };
 
+/**
+ * A photo taken alongside a weigh-in.
+ *
+ * The record only; the image is fetched separately from
+ * `/api/progress-photos/{id}/file`. Dimensions are stored so a thumbnail can
+ * hold its space before the bytes arrive.
+ */
+export type ProgressPhoto = Base & {
+	bodyWeightId: string;
+	contentType: string;
+	width: number;
+	height: number;
+	byteSize: number;
+};
+
 /** Always kilograms -- unlike a set, a weigh-in carries no unit. */
 export type BodyWeight = Base & {
 	entryDate: string;
@@ -113,6 +128,14 @@ export type RawTagJoin = RawBase & {
 export type RawTemplateJoin = RawBase & {
 	template_id: string;
 	exercise_id: string;
+};
+
+export type RawProgressPhoto = RawBase & {
+	body_weight_id: string;
+	content_type: string;
+	width: number;
+	height: number;
+	byte_size: number;
 };
 
 export type RawBodyWeight = RawBase & {

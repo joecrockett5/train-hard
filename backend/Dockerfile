@@ -33,6 +33,14 @@ WORKDIR /app
 COPY --from=builder /install /usr/local
 
 RUN useradd --create-home --uid 1000 app && chown -R app:app /app
+
+# Progress photos are written here, onto a named volume. The directory is
+# created and chowned in the image rather than at runtime because Docker
+# seeds a new named volume from the image's directory, ownership included --
+# so the volume comes up writable by `app` without this service running as
+# root the way DynamoDB Local has to.
+RUN mkdir -p /photos && chown app:app /photos
+
 USER app
 
 EXPOSE 8000
