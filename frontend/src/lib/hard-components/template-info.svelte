@@ -46,7 +46,8 @@
 	}
 </script>
 
-<Card.Root class="mt-4">
+<!-- `relative` so the link below can stretch over the whole card. -->
+<Card.Root class={href ? 'relative mt-4' : 'mt-4'}>
 	{#if !brief}
 		<Dialog.Root>
 			<Dialog.Trigger class={`float-right top-4 right-4 ${buttonVariants({ variant: 'ghost' })}`}
@@ -82,7 +83,13 @@
 	<Card.Header>
 		<Card.Title>
 			{#if href}
-				<a {href}>{template.name}</a>
+				<!--
+					The pseudo-element stretches the link over the whole card,
+					so the tag badges, the notes and the empty space open the
+					template too. On a phone the name alone is a thin target
+					in the middle of a wide card.
+				-->
+				<a {href} class="after:absolute after:inset-0">{template.name}</a>
 			{:else}
 				{template.name}
 			{/if}

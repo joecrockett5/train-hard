@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { createEventDispatcher } from 'svelte';
 	import TagBadge from './tag-badge.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import type { Tag } from '$lib/types';
@@ -9,6 +10,15 @@
 	/** The ids currently filtered by. Bound, so the caller filters on it. */
 	export let selected: string[] = [];
 
+	/**
+	 * Fired whenever the reader changes the filter.
+	 *
+	 * `selected` is bound, so a caller could watch it instead -- but watching
+	 * it in a `$:` block that also assigns a paged list's page number breaks
+	 * the pager; see the comment where this event is handled.
+	 */
+	const dispatch = createEventDispatcher<{ change: string[] }>();
+
 	$: available = sortTags(tags);
 	$: selectedIds = new Set(selected);
 
@@ -16,6 +26,12 @@
 		const id = tag.objectId ?? '';
 
 		selected = selectedIds.has(id) ? selected.filter((each) => each !== id) : [...selected, id];
+		dispatch('change', selected);
+	}
+
+	function clear() {
+		selected = [];
+		dispatch('change', selected);
 	}
 </script>
 
@@ -31,9 +47,7 @@
 			/>
 		{/each}
 		{#if selected.length > 0}
-			<Button variant="ghost" size="sm" class="h-6 px-2 text-xs" on:click={() => (selected = [])}>
-				Clear
-			</Button>
+			<Button variant="ghost" size="sm" class="h-6 px-2 text-xs" on:click={clear}>Clear</Button>
 		{/if}
 	</div>
 {/if}

@@ -21,12 +21,6 @@
 
 	$: matching = filterByTags(exercises, selectedTagIds);
 
-	// Page 1 is the only page certain to exist after the filter narrows the
-	// list; staying on page 4 of 4 would otherwise show nothing.
-	$: if (selectedTagIds) {
-		page = 1;
-	}
-
 	$: viewableExercises = matching.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
 	async function deleteExercise(exercise: Exercise) {
@@ -58,7 +52,15 @@
 		</Card.Description>
 	</Card.Header>
 	<Card.Content class="pt-0">
-		<TagFilter tags={allTags} bind:selected={selectedTagIds} />
+		<!--
+			The page is reset here, on the event, rather than in a `$:` block
+			watching the filter. Svelte invalidates a reactive statement's
+			dependencies whenever anything else writes a variable that
+			statement assigns, so a block doing `page = 1` re-ran on every
+			write the pager's `bind:page` made, and sent each click on page 2
+			straight back to page 1.
+		-->
+		<TagFilter tags={allTags} bind:selected={selectedTagIds} on:change={() => (page = 1)} />
 	</Card.Content>
 </Card.Root>
 

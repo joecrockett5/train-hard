@@ -97,12 +97,6 @@
 		pickerOpen = false;
 	}
 
-	// Either control narrows the list, so both have to send it back to a page
-	// that still exists.
-	$: if (search || selectedTagIds) {
-		exercisePage = 1;
-	}
-
 	/**
 	 * Pulls a template's exercises into this workout.
 	 *
@@ -142,8 +136,11 @@
 		} else {
 			exercises.push(exercise);
 			exercises = exercises;
+			// Clearing the filter widens the list again, so the page it was
+			// on no longer means anything.
 			search = '';
 			selectedTagIds = [];
+			exercisePage = 1;
 		}
 	};
 
@@ -207,8 +204,25 @@
 >
 	<div>
 		<label for="Search" class="text-left"><b>Search</b></label>
-		<Input placeholder="Name or description" bind:value={search} />
-		<TagFilter tags={filterableTags} bind:selected={selectedTagIds} />
+		<!--
+			Either control narrows the list, so both send it back to a page
+			that still exists -- from the event rather than from a `$:` block
+			watching them. Svelte invalidates a reactive statement's
+			dependencies whenever anything else writes a variable that
+			statement assigns, so a block doing `exercisePage = 1` re-ran on
+			every write the pager's `bind:page` made, and each click on page 2
+			went straight back to page 1.
+		-->
+		<Input
+			placeholder="Name or description"
+			bind:value={search}
+			on:input={() => (exercisePage = 1)}
+		/>
+		<TagFilter
+			tags={filterableTags}
+			bind:selected={selectedTagIds}
+			on:change={() => (exercisePage = 1)}
+		/>
 		<!--
 			Always offered, rather than only when the search finds nothing: an
 			exercise can be missing while its name still half-matches

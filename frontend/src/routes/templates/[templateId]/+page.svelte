@@ -68,12 +68,6 @@
 		exercisePage * PAGE_SIZE
 	);
 
-	// Either control narrows the list, so both have to send it back to a page
-	// that still exists.
-	$: if (search || selectedTagIds) {
-		exercisePage = 1;
-	}
-
 	async function addExercise(exercise: Exercise) {
 		const response = await fetch('/api/template-joins', {
 			method: 'POST',
@@ -90,8 +84,11 @@
 		}
 
 		exercises = [...exercises, exercise];
+		// Clearing the filter widens the list again, so the page it was on
+		// no longer means anything.
 		search = '';
 		selectedTagIds = [];
+		exercisePage = 1;
 	}
 
 	/** A new exercise goes straight into this template, and into the picker's list. */
@@ -145,8 +142,25 @@
 >
 	<div>
 		<label for="Search" class="text-left"><b>Search</b></label>
-		<Input placeholder="Name or description" bind:value={search} />
-		<TagFilter tags={filterableTags} bind:selected={selectedTagIds} />
+		<!--
+			Either control narrows the list, so both send it back to a page
+			that still exists -- from the event rather than from a `$:` block
+			watching them. Svelte invalidates a reactive statement's
+			dependencies whenever anything else writes a variable that
+			statement assigns, so a block doing `exercisePage = 1` re-ran on
+			every write the pager's `bind:page` made, and each click on page 2
+			went straight back to page 1.
+		-->
+		<Input
+			placeholder="Name or description"
+			bind:value={search}
+			on:input={() => (exercisePage = 1)}
+		/>
+		<TagFilter
+			tags={filterableTags}
+			bind:selected={selectedTagIds}
+			on:change={() => (exercisePage = 1)}
+		/>
 		<NewExercise bind:allTags onCreated={createdExercise} label="New Exercise" />
 	</div>
 	<Pager count={possibleExercises.length} bind:page={exercisePage} />
