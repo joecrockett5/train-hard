@@ -2,6 +2,7 @@
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button, buttonVariants } from '$lib/components/ui/button';
 	import ChevronRight from 'lucide-svelte/icons/chevron-right';
+	import PhotoImage from '$lib/hard-components/photo-image.svelte';
 	import type { ProgressPhoto } from '$lib/types';
 
 	/**
@@ -18,10 +19,6 @@
 
 	let open = false;
 	let viewing: ProgressPhoto | null = null;
-
-	function source(photo: ProgressPhoto): string {
-		return `/api/progress-photos/${photo.objectId}/file`;
-	}
 </script>
 
 {#if photos.length > 0}
@@ -47,14 +44,7 @@
 						aria-label="View photo full size"
 						on:click={() => (viewing = photo)}
 					>
-						<img
-							src={source(photo)}
-							alt=""
-							loading="lazy"
-							width={photo.width || undefined}
-							height={photo.height || undefined}
-							class="aspect-square w-full rounded-md object-cover"
-						/>
+						<PhotoImage {photo} class="aspect-square w-full rounded-md object-cover" />
 					</button>
 					{#if removalCallback}
 						<button
@@ -84,7 +74,7 @@
 			<Dialog.Title>Progress photo</Dialog.Title>
 		</Dialog.Header>
 		{#if viewing}
-			<img src={source(viewing)} alt="" class="max-h-[70vh] w-full rounded-md object-contain" />
+			<PhotoImage photo={viewing} explain class="max-h-[70vh] w-full rounded-md object-contain" />
 		{/if}
 		<Dialog.Footer>
 			<Dialog.Close class={buttonVariants({ variant: 'ghost' })}>Close</Dialog.Close>

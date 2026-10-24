@@ -4,6 +4,7 @@
 	import ChevronLeft from 'lucide-svelte/icons/chevron-left';
 	import Link2 from 'lucide-svelte/icons/link-2';
 	import Unlink2 from 'lucide-svelte/icons/unlink-2';
+	import PhotoImage from '$lib/hard-components/photo-image.svelte';
 	import {
 		choosePhoto,
 		clampChosen,
@@ -86,10 +87,6 @@
 	const SELECT_CLASS =
 		'border-input bg-background focus-visible:ring-ring h-10 w-full rounded-md border px-2 text-sm focus-visible:outline-none focus-visible:ring-2';
 
-	function source(photo: ProgressPhoto): string {
-		return `/api/progress-photos/${photo.objectId}/file`;
-	}
-
 	/** `2026-10-17` as `17 Oct 26`: a year of weigh-ins needs the year. */
 	function label(entry: BodyWeight): string {
 		return new Date(`${entry.entryDate}T00:00:00Z`).toLocaleDateString('en-GB', {
@@ -164,12 +161,10 @@
 					<div>
 						<div class="bg-muted aspect-[3/4] w-full overflow-hidden rounded-md">
 							{#if photo}
-								<img
-									src={source(photo)}
+								<PhotoImage
+									{photo}
 									alt={`Progress photo from ${weighIn ? label(weighIn.entry) : ''}`}
-									loading="lazy"
-									width={photo.width || undefined}
-									height={photo.height || undefined}
+									explain
 									class="h-full w-full object-contain"
 								/>
 							{/if}
@@ -193,12 +188,7 @@
 										aria-pressed={index === chosen[side]}
 										on:click={() => pick(side, index)}
 									>
-										<img
-											src={source(thumbnail)}
-											alt=""
-											loading="lazy"
-											class="aspect-square w-full object-cover"
-										/>
+										<PhotoImage photo={thumbnail} class="aspect-square w-full object-cover" />
 									</button>
 								{/each}
 							</div>
