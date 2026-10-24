@@ -11,7 +11,10 @@
 	import { toStoredWeight, weightUnit } from '$lib/units';
 	import { todayIso } from '$lib/dates';
 	import PhotoPicker from '$lib/hard-components/photo-picker.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import Images from 'lucide-svelte/icons/images';
 	import { uploadPhotos } from '$lib/photos';
+	import { comparableWeighIns, widestPair } from '$lib/photo-comparison';
 	import type { BodyWeight, ProgressPhoto } from '$lib/types';
 
 	export let data;
@@ -27,6 +30,10 @@
 		grouped.set(photo.bodyWeightId, forEntry);
 		return grouped;
 	}, new Map());
+
+	// Offered only when there are two dates to put side by side, which is
+	// what the compare screen needs to show anything at all.
+	$: comparable = widestPair(comparableWeighIns(entries, photos)) !== null;
 
 	let page = 1;
 
@@ -106,6 +113,13 @@
 </Card.Root>
 
 <WeightChart entries={oldestFirst} />
+
+{#if comparable}
+	<Button href="/body-weight/compare" variant="outline" class="mt-4 w-full text-gray-400">
+		<Images class="mr-2 h-4 w-4" />
+		Compare photos
+	</Button>
+{/if}
 
 <NewItem item="Weigh-in">
 	<label for="date">Date</label>
