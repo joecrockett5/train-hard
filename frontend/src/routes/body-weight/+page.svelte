@@ -125,7 +125,18 @@
 	<label for="date">Date</label>
 	<Input type="date" bind:value={newDate} />
 	<label for="weight">Weight ({$weightUnit})</label>
-	<Input type="number" step="0.01" min="0" placeholder="Weight" bind:value={newWeight} />
+	<!--
+		`inputmode` rather than the type: it asks iOS for the decimal pad, the
+		big keypad with a decimal point, which is what a weight is typed on.
+	-->
+	<Input
+		type="number"
+		inputmode="decimal"
+		step="0.01"
+		min="0"
+		placeholder="Weight"
+		bind:value={newWeight}
+	/>
 	<label for="notes">Notes</label>
 	<Input placeholder="Notes" bind:value={newNotes} />
 	<PhotoPicker bind:files={newPhotos} />

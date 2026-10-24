@@ -90,7 +90,14 @@
 					<Dialog.Description>{formattedDate}</Dialog.Description>
 				</Dialog.Header>
 				<label for="weight">Weight ({$weightUnit})</label>
-				<Input type="number" step="0.01" placeholder="Weight" bind:value={updatedWeight} />
+				<!-- `inputmode` asks iOS for the decimal pad; see the new weigh-in. -->
+				<Input
+					type="number"
+					inputmode="decimal"
+					step="0.01"
+					placeholder="Weight"
+					bind:value={updatedWeight}
+				/>
 				<label for="notes">Notes</label>
 				<Input placeholder="Notes" bind:value={updatedNotes} />
 

@@ -19,7 +19,18 @@
 {:else}
 	<span class="flex items-center gap-2">
 		<Input placeholder="Reps" type="tel" autofocus bind:value={reps} class="w-20" /> reps @
-		<Input placeholder={$weightUnit} type="tel" bind:value={weight} class="w-16" />
+		<!--
+			`inputmode` rather than `type="tel"`: tel asks for the phone pad,
+			which carries + * # and no decimal point at all. This asks iOS for
+			the decimal pad instead. Both hold text either way.
+		-->
+		<Input
+			placeholder={$weightUnit}
+			type="text"
+			inputmode="decimal"
+			bind:value={weight}
+			class="w-16"
+		/>
 		{$weightUnit}
 	</span>
 {/if}
