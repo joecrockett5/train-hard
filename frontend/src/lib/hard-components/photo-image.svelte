@@ -10,6 +10,15 @@
 	 * happens -- and the request for it then answers 404. A bare `<img>`
 	 * renders that as nothing at all, so a screen of photo-shaped boxes comes
 	 * up empty with nothing to say why.
+	 *
+	 * Loaded eagerly, on purpose. `loading="lazy"` is a long-standing way to
+	 * get an empty box on iOS Safari: it leaves images that are already in
+	 * the viewport unloaded, and nothing asks again until something changes
+	 * the layout. That is what blanked the compare screen while the same
+	 * photos appeared in the gallery -- a gallery opens on a tap, which is
+	 * the layout change, and the compare screen draws its two photos at once
+	 * on a page with nothing to scroll. There is nothing to defer anyway: a
+	 * screen holds a handful of photos, each already shrunk on the device.
 	 */
 
 	export let photo: ProgressPhoto;
@@ -49,7 +58,6 @@
 	<img
 		{src}
 		{alt}
-		loading="lazy"
 		width={photo.width || undefined}
 		height={photo.height || undefined}
 		class={className}
