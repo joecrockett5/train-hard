@@ -13,7 +13,7 @@
 	import { formatWeight, toDisplayWeight } from '$lib/units';
 	import { preferences } from '$lib/preferences.svelte';
 	import { todayIso } from '$lib/dates';
-	import { longDate, relativeDay, timestampDay } from '$lib/i18n/format';
+	import { longDate, relativeDay } from '$lib/i18n/format';
 	import { t } from '$lib/i18n';
 	import type { BodyWeight, Template, WorkoutInfo } from '$lib/types';
 	import type { PageData } from './$types';
@@ -36,7 +36,7 @@
 	});
 
 	const summary = $derived(summariseWorkouts(workouts, today));
-	const frequent = $derived(frequentExercises(data.exercises, data.joins));
+	const frequent = $derived(frequentExercises(data.exercises, data.joins, workouts));
 	const weight = $derived(
 		summarise(
 			weighIns.map((entry) => ({
@@ -87,107 +87,111 @@
 	</div>
 </header>
 
-{#if firstRun}
-	<Card>
-		<EmptyState icon="flame" title={t.dashboard.firstRun} body={t.dashboard.firstRunBody}>
-			{#snippet action()}
-				<Button variant="primary" icon="plus" onclick={() => (startingWorkout = true)}>
-					{t.dashboard.startWorkout}
-				</Button>
-			{/snippet}
-		</EmptyState>
-	</Card>
-{:else}
-	<!-- The point of the screen, so it is the one primary action on it. -->
-	<Button variant="primary" size="lg" icon="plus" full onclick={() => (startingWorkout = true)}>
-		{t.dashboard.startWorkout}
-	</Button>
-
-	{#if summary.today.length > 0}
-		<section>
-			<h2>{t.dashboard.todaysWorkouts}</h2>
-			<ul>
-				{#each summary.today as workout (workout.objectId)}
-					<li><WorkoutCard {workout} dateStyle="none" /></li>
-				{/each}
-			</ul>
-		</section>
-	{/if}
-
-	<div class="stats">
+<div class="columns">
+	{#if firstRun}
 		<Card>
-			<p class="stat-label">{t.dashboard.thisWeek}</p>
-			<p class="stat tnum">{summary.thisWeek}</p>
-			<p class="stat-note">
-				{summary.thisWeek === 0
-					? t.dashboard.streakNone
-					: t.dashboard.thisWeekWorkouts(summary.thisWeek)}
-			</p>
+			<EmptyState icon="flame" title={t.dashboard.firstRun} body={t.dashboard.firstRunBody}>
+				{#snippet action()}
+					<Button variant="primary" icon="plus" onclick={() => (startingWorkout = true)}>
+						{t.dashboard.startWorkout}
+					</Button>
+				{/snippet}
+			</EmptyState>
 		</Card>
-
-		<Card>
-			<p class="stat-label">{t.dashboard.latestWeight}</p>
-			{#if weight}
-				<p class="stat tnum">{formatWeight(weight.current)}<small>{prefs.weightUnit}</small></p>
-				<p class="stat-note">{relativeDay(weight.latest.entryDate)}</p>
-			{:else}
-				<p class="stat muted">—</p>
-				<button type="button" class="stat-action" onclick={() => (loggingWeight = true)}>
-					{t.dashboard.addWeighIn}
-				</button>
-			{/if}
-		</Card>
-	</div>
-
-	<Card>
-		{#if data.weightsUnavailable}
-			<EmptyState icon="alert" tone="error" title={t.dashboard.progressUnavailable} />
-		{:else}
-			<a href="/body-weight" class="chart-link" aria-label={t.bodyWeight.title}>
-				<WeightChart entries={weighIns} compact />
-			</a>
-		{/if}
-	</Card>
-
-	<section>
-		<div class="section-head">
-			<h2>{t.dashboard.recentWorkouts}</h2>
-			<Button variant="ghost" size="sm" href="/workouts" iconEnd="chevronRight">
-				{t.dashboard.seeAllWorkouts}
+	{:else}
+		<div class="column">
+			<!-- The point of the screen, so it is the one primary action on it. -->
+			<Button variant="primary" size="lg" icon="plus" full onclick={() => (startingWorkout = true)}>
+				{t.dashboard.startWorkout}
 			</Button>
-		</div>
-		{#if summary.recent.length > 0}
-			<ul>
-				{#each summary.recent as workout (workout.objectId)}
-					<li><WorkoutCard {workout} /></li>
-				{/each}
-			</ul>
-		{:else}
-			<Card><EmptyState icon="dumbbell" title={t.dashboard.recentWorkoutsEmpty} /></Card>
-		{/if}
-	</section>
 
-	{#if frequent.length > 0}
-		<section>
-			<h2>{t.dashboard.frequentExercises}</h2>
-			<Card padded={false}>
-				<ul class="frequent">
-					{#each frequent as entry (entry.exercise.objectId)}
-						<li>
-							<span class="name">{entry.exercise.name}</span>
-							<span class="count">
-								{t.dashboard.frequentExerciseSessions(entry.sessions)}
-								{#if entry.lastDone}
-									<span class="when">· {timestampDay(entry.lastDone)}</span>
-								{/if}
-							</span>
-						</li>
-					{/each}
-				</ul>
+			{#if summary.today.length > 0}
+				<section>
+					<h2>{t.dashboard.todaysWorkouts}</h2>
+					<ul>
+						{#each summary.today as workout (workout.objectId)}
+							<li><WorkoutCard {workout} dateStyle="none" /></li>
+						{/each}
+					</ul>
+				</section>
+			{/if}
+
+			<div class="stats">
+				<Card>
+					<p class="stat-label">{t.dashboard.thisWeek}</p>
+					<p class="stat tnum">{summary.thisWeek}</p>
+					<p class="stat-note">
+						{summary.thisWeek === 0 ? t.dashboard.streakNone : t.dashboard.lastSevenDays}
+					</p>
+				</Card>
+
+				<Card>
+					<p class="stat-label">{t.dashboard.latestWeight}</p>
+					{#if weight}
+						<p class="stat tnum">{formatWeight(weight.current)}<small>{prefs.weightUnit}</small></p>
+						<p class="stat-note">{relativeDay(weight.latest.entryDate)}</p>
+					{:else}
+						<p class="stat muted">—</p>
+						<button type="button" class="stat-action" onclick={() => (loggingWeight = true)}>
+							{t.dashboard.addWeighIn}
+						</button>
+					{/if}
+				</Card>
+			</div>
+
+			<section>
+				<div class="section-head">
+					<h2>{t.dashboard.recentWorkouts}</h2>
+					<Button variant="ghost" size="sm" href="/workouts" iconEnd="chevronRight">
+						{t.dashboard.seeAllWorkouts}
+					</Button>
+				</div>
+				{#if summary.recent.length > 0}
+					<ul>
+						{#each summary.recent as workout (workout.objectId)}
+							<li><WorkoutCard {workout} /></li>
+						{/each}
+					</ul>
+				{:else}
+					<Card><EmptyState icon="dumbbell" title={t.dashboard.recentWorkoutsEmpty} /></Card>
+				{/if}
+			</section>
+		</div>
+
+		<div class="column">
+			<Card>
+				{#if data.weightsUnavailable}
+					<EmptyState icon="alert" tone="error" title={t.dashboard.progressUnavailable} />
+				{:else}
+					<a href="/body-weight" class="chart-link" aria-label={t.bodyWeight.title}>
+						<WeightChart entries={weighIns} compact />
+					</a>
+				{/if}
 			</Card>
-		</section>
+
+			{#if frequent.length > 0}
+				<section>
+					<h2>{t.dashboard.frequentExercises}</h2>
+					<Card padded={false}>
+						<ul class="frequent">
+							{#each frequent as entry (entry.exercise.objectId)}
+								<li>
+									<span class="name">{entry.exercise.name}</span>
+									<span class="count">
+										{t.dashboard.frequentExerciseSessions(entry.sessions)}
+										{#if entry.lastDone}
+											<span class="when">· {relativeDay(entry.lastDone)}</span>
+										{/if}
+									</span>
+								</li>
+							{/each}
+						</ul>
+					</Card>
+				</section>
+			{/if}
+		</div>
 	{/if}
-{/if}
+</div>
 
 <WorkoutDialog
 	bind:open={startingWorkout}
@@ -323,9 +327,26 @@
 		color: var(--ink-subtle);
 	}
 
-	@media (min-width: 52rem) {
-		.stats {
-			grid-template-columns: repeat(4, 1fr);
+	.columns,
+	.column {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-4);
+		min-width: 0;
+	}
+
+	/*
+	 * Two columns from laptop width. The action and the lists go left, the
+	 * chart and the frequency table right -- one column stretched this wide
+	 * leaves every card mostly empty and pushes the graph, which is the thing
+	 * most worth seeing, below the fold.
+	 */
+	@media (min-width: 64rem) {
+		.columns {
+			display: grid;
+			grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+			align-items: start;
+			gap: var(--space-5);
 		}
 	}
 </style>

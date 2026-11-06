@@ -68,11 +68,29 @@
 			return;
 		}
 
-		const previous = document.body.style.overflow;
+		const previous = {
+			overflow: document.body.style.overflow,
+			padding: document.body.style.paddingRight
+		};
+
+		/*
+		 * Hiding the overflow takes the scrollbar away, and the page widens
+		 * by its width as it goes -- so everything behind the sheet shifts
+		 * sideways as it opens. Padding by the width that was just reclaimed
+		 * holds it still. `scrollbar-gutter: stable` would do the same job,
+		 * but it reserves the gutter from the viewport, which leaves a strip
+		 * of page beside a sheet that is meant to span it.
+		 */
+		const scrollbar = window.innerWidth - document.documentElement.clientWidth;
+
 		document.body.style.overflow = 'hidden';
+		if (scrollbar > 0) {
+			document.body.style.paddingRight = `${scrollbar}px`;
+		}
 
 		return () => {
-			document.body.style.overflow = previous;
+			document.body.style.overflow = previous.overflow;
+			document.body.style.paddingRight = previous.padding;
 		};
 	});
 
@@ -162,6 +180,15 @@
 		max-height: none;
 	}
 
+	/*
+	 * Every `display` below is qualified with `[open]`.
+	 *
+	 * The user-agent sheet hides a closed dialog with `display: none`, and an
+	 * unqualified `display: grid` here overrides it at equal specificity --
+	 * which left every dialog on the page laid out over the top of it,
+	 * invisible and swallowing every click aimed at what was behind.
+	 */
+
 	dialog::backdrop {
 		background: var(--scrim);
 		backdrop-filter: blur(2px);
@@ -194,7 +221,7 @@
 
 	/* Past phone width a sheet stops being the right shape and centres. */
 	@media (min-width: 40rem) {
-		dialog.sheet {
+		dialog.sheet[open] {
 			inset: 0;
 			display: grid;
 			place-items: center;
@@ -213,7 +240,7 @@
 
 	/* ---- centred: for confirmations, which are short -------------------- */
 
-	dialog.center {
+	dialog.center[open] {
 		position: fixed;
 		inset: 0;
 		display: grid;

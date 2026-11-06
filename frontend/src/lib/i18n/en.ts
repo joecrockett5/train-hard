@@ -180,6 +180,7 @@ export const en = {
 			'Nothing logged yet. Start a workout and add exercises to it, or add a weigh-in to start the graph.',
 		thisWeek: 'This week',
 		thisWeekWorkouts: (count: number) => (count === 1 ? '1 workout' : `${count} workouts`),
+		lastSevenDays: 'In the last 7 days',
 		streakNone: 'No workouts in the last 7 days.'
 	},
 

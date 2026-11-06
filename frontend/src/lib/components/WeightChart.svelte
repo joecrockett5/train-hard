@@ -228,10 +228,6 @@
 		touch-action: pan-y;
 	}
 
-	.compact svg {
-		max-height: 7rem;
-	}
-
 	.grid {
 		stroke: var(--line);
 		stroke-width: 1;

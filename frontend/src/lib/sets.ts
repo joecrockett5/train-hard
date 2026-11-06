@@ -89,29 +89,36 @@ export function compareSet(
  * The previous sessions of an exercise, oldest first, split into warm-up and
  * working sets.
  *
- * `/api/sets/recent` keys them by the exercise-join's timestamp, which is
- * when that session happened; an object has no order worth relying on, so
- * this sorts them.
+ * Dated by the workout rather than by when the row was written: a session
+ * typed in on Sunday still happened on Tuesday, and labelling by the row made
+ * a week of back-filled workouts all read as today.
  */
 export type PastSession = {
-	/** The exercise-join timestamp, which is when the session was. */
-	timestamp: string;
+	/** The workout it was part of, which is what keys the list. */
+	workoutId: string;
+	/** The day that session happened, `YYYY-MM-DD`. */
+	workoutDate: string;
+	title: string;
 	warmup: Set[];
 	working: Set[];
 };
 
-export function pastSessions(instances: Record<string, Set[]> | undefined): PastSession[] {
-	if (!instances) {
+type RawSession = { workoutId: string; workoutDate: string; title: string; sets: Set[] };
+
+export function pastSessions(sessions: RawSession[] | undefined): PastSession[] {
+	if (!sessions) {
 		return [];
 	}
 
-	return Object.entries(instances)
-		.map(([timestamp, sets]) => ({
-			timestamp,
-			warmup: sets.filter((set) => set.setType === 'warmup'),
-			working: sets.filter((set) => set.setType !== 'warmup')
+	return sessions
+		.map((session) => ({
+			workoutId: session.workoutId,
+			workoutDate: session.workoutDate,
+			title: session.title,
+			warmup: session.sets.filter((set) => set.setType === 'warmup'),
+			working: session.sets.filter((set) => set.setType !== 'warmup')
 		}))
-		.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+		.sort((a, b) => a.workoutDate.localeCompare(b.workoutDate));
 }
 
 /**

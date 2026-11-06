@@ -20,7 +20,7 @@
 	import { formatWeight, toDisplayWeight, toStoredWeight } from '$lib/units';
 	import { preferences } from '$lib/preferences.svelte';
 	import { t } from '$lib/i18n';
-	import { timestampDay } from '$lib/i18n/format';
+	import { mediumDate } from '$lib/i18n/format';
 
 	/**
 	 * An exercise inside a workout, with its sets.
@@ -80,10 +80,11 @@
 		try {
 			const response = await fetch(`/api/sets/recent?exercise=${exercise.objectId}`);
 
-			// 404 is the endpoint saying this exercise has no earlier session,
-			// which is a fact about the data rather than a failure.
+			// An exercise with no earlier session comes back with an empty
+			// list, which is a fact about the data rather than a failure.
 			if (response.ok) {
-				history = pastSessions(await response.json());
+				const { sessions } = await response.json();
+				history = pastSessions(sessions);
 			}
 		} catch (error) {
 			console.error(`Could not read history for ${exercise.name}: `, error);
@@ -241,9 +242,9 @@
 				<section>
 					<h3>{t.sets.history}</h3>
 					<div class="history">
-						{#each history as session (session.timestamp)}
+						{#each history as session (session.workoutId)}
 							<Button variant="outline" size="sm" onclick={() => (viewing = session)}>
-								{timestampDay(session.timestamp)}
+								{mediumDate(session.workoutDate)}
 							</Button>
 						{/each}
 					</div>
@@ -341,7 +342,7 @@
 
 <Dialog
 	open={viewing !== null}
-	title={viewing ? t.sets.historyOn(timestampDay(viewing.timestamp)) : ''}
+	title={viewing ? t.sets.historyOn(mediumDate(viewing.workoutDate)) : ''}
 	onclose={() => (viewing = null)}
 >
 	{#if viewing}

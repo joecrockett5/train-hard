@@ -50,7 +50,8 @@ export function summariseWorkouts(
 
 	return {
 		today: ordered.filter((workout) => workout.workoutDate === today).reverse(),
-		recent: ordered.slice(0, recentCount),
+		// Today has a section of its own above, so it is not repeated here.
+		recent: ordered.filter((workout) => workout.workoutDate !== today).slice(0, recentCount),
 		thisWeek: ordered.filter((workout) => {
 			const age = daysBetween(workout.workoutDate, today);
 			// Not future-dated, and inside the window.
@@ -63,7 +64,7 @@ export type FrequentExercise = {
 	exercise: Exercise;
 	/** How many workouts it has appeared in. */
 	sessions: number;
-	/** The timestamp of the most recent of those, or undefined. */
+	/** The date of the most recent of those, as `YYYY-MM-DD`. */
 	lastDone?: string;
 };
 
@@ -78,16 +79,26 @@ export type FrequentExercise = {
 export function frequentExercises(
 	exercises: Exercise[],
 	joins: ExerciseJoin[],
+	workouts: WorkoutInfo[] = [],
 	limit = 4
 ): FrequentExercise[] {
+	/*
+	 * The day it was last done is the workout's date, not the join row's
+	 * timestamp. Those differ by however long after the session it was typed
+	 * in, which for a week of workouts entered on Sunday is the difference
+	 * between "last done Tuesday" and "last done today, six times".
+	 */
+	const dates = new Map(workouts.map((workout) => [workout.objectId ?? '', workout.workoutDate]));
+
 	const counts = new Map<string, { sessions: number; lastDone?: string }>();
 
 	for (const join of joins) {
 		const seen = counts.get(join.exerciseId) ?? { sessions: 0 };
+		const done = dates.get(join.workoutId);
 
 		seen.sessions += 1;
-		if (!seen.lastDone || join.timestamp > seen.lastDone) {
-			seen.lastDone = join.timestamp;
+		if (done && (!seen.lastDone || done > seen.lastDone)) {
+			seen.lastDone = done;
 		}
 
 		counts.set(join.exerciseId, seen);
