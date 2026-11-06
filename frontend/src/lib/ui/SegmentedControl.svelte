@@ -118,13 +118,26 @@
 		box-shadow: var(--shadow-1);
 	}
 
-	/* Hidden from sight, not from the keyboard or a screen reader. */
+	/*
+	 * Hidden from sight, not from the keyboard, a screen reader, or a
+	 * pointer: the input is stretched over its whole segment rather than
+	 * shrunk to a pixel, so the thing being clicked is the control itself.
+	 * Shrunk and made `pointer-events: none`, only the label was ever
+	 * clickable, which works for a person and not for anything driving the
+	 * page.
+	 */
+	.segment {
+		position: relative;
+	}
+
 	input {
 		position: absolute;
-		width: 1px;
-		height: 1px;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		margin: 0;
 		opacity: 0;
-		pointer-events: none;
+		cursor: pointer;
 	}
 
 	.segment:has(input:focus-visible) {

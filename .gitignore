@@ -44,3 +44,7 @@ vite.config.ts.timestamp-*
 Thumbs.db
 *.swp
 .idea/
+
+# Playwright
+frontend/test-results/
+frontend/playwright-report/

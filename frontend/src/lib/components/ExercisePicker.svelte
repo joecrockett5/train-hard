@@ -93,6 +93,21 @@
 		selectedTagIds = [];
 		page = 1;
 	}
+
+	/**
+	 * A newly created exercise goes in, and the picker closes behind it.
+	 *
+	 * Picking an existing one closes it, and having just made one you want to
+	 * be back at the workout logging sets -- not looking at a list of the
+	 * exercises you did not pick.
+	 */
+	async function created(exercise: Exercise) {
+		open = false;
+		await oncreate(exercise);
+		search = '';
+		selectedTagIds = [];
+		page = 1;
+	}
 </script>
 
 <Dialog bind:open {title} {description}>
@@ -143,7 +158,7 @@
 	{/if}
 </Dialog>
 
-<ExerciseDialog bind:open={creating} bind:allTags onsaved={oncreate} />
+<ExerciseDialog bind:open={creating} bind:allTags onsaved={created} />
 
 <style>
 	.actions {
