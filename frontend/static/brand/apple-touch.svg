@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+	<!--
+		iOS uses this for "Add to Home Screen" rather than the manifest icons,
+		and it applies its own rounded mask. So: square, full bleed and fully
+		opaque -- a transparent corner is composited onto black -- with the
+		mark at 80%, which clears iOS's corner radius without looking inset.
+	-->
+	<defs>
+		<linearGradient id="thAppleRamp" x1="0" y1="64" x2="64" y2="0" gradientUnits="userSpaceOnUse">
+			<stop offset="0" stop-color="#EF6C1A" />
+			<stop offset="1" stop-color="#FBB724" />
+		</linearGradient>
+	</defs>
+	<rect width="64" height="64" fill="url(#thAppleRamp)" />
+	<g transform="translate(32 32) scale(0.8) translate(-32 -32)">
+		<path
+			d="M12 46 L24 31 L34 40 L50 16"
+			fill="none"
+			stroke="#14110F"
+			stroke-width="7"
+			stroke-linecap="round"
+			stroke-linejoin="round"
+		/>
+		<circle cx="50" cy="16" r="6" fill="#14110F" />
+	</g>
+</svg>
