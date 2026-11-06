@@ -2,7 +2,10 @@ name: CI
 
 on:
   push:
-    branches: [main, japanese]
+    # Branches whose pushes run the gates. Running them is not the same as
+    # shipping an image from them -- see the publish job, which names the
+    # branches that do that and nothing else.
+    branches: [main, japanese, ui-rebuild]
     tags: ['v*']
   pull_request:
   workflow_dispatch:
@@ -277,10 +280,25 @@ jobs:
     name: Publish images
     # Nothing ships unless all three gates are green.
     needs: [backend, frontend, stack]
-    # Pull requests run the gates but never publish. `on.push` already
-    # restricts this to main, japanese and v* tags, so a push is enough.
-    # metadata-action gives `latest` only to the default branch.
-    if: github.event_name == 'push'
+    #
+    # Which branches ship images, stated here rather than inferred from the
+    # trigger list above.
+    #
+    # `ui-rebuild` is a long-lived branch carrying the rebuilt interface. It
+    # runs every gate and publishes nothing: the server running it builds from
+    # a checkout, and an image it never produces is an image no Watchtower
+    # anywhere can find. Adding a branch to the triggers above therefore gives
+    # it the tests and not the registry, which is the safe default; a branch
+    # that should ship is named here.
+    #
+    # Pull requests run the gates and never publish. `latest` is separately
+    # gated on the default branch by metadata-action, so even a mistake here
+    # could not move the tag the deployed servers follow.
+    if: >-
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/main' ||
+      github.ref == 'refs/heads/japanese' ||
+      startsWith(github.ref, 'refs/tags/v'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
 

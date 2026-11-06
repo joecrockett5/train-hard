@@ -21,10 +21,11 @@ previous UI that the current one was built to match.
 
 ## Branches
 
-| Branch | UI language |
-| --- | --- |
-| `main` | English |
-| `japanese` | Japanese (日本語) |
+| Branch | What it is | Ships images? |
+| --- | --- | --- |
+| `main` | English, the interface as it was | `latest` |
+| `japanese` | Japanese (日本語), the same interface | `japanese` |
+| `ui-rebuild` | The rebuilt interface. Long-lived, not merged. | no |
 
 `japanese` is the original UI the app was written with, preserved so it can be
 picked up again; `main` is the English translation of it.
@@ -37,6 +38,23 @@ language is chosen by `UI_LOCALE` at run time. Adding `ja.ts` there and
 registering it retires the branch -- one image, two languages, no divergence
 to manage. Until someone does that, `japanese` is still a branch and still
 builds its own images; see **CI/CD**.
+
+### The `ui-rebuild` branch
+
+A rebuilt interface -- new navigation, a dashboard, one settings screen, a new
+mark -- kept as a branch so `main` stays exactly as it was. The backend is
+identical on both: no model change, no new endpoint, no migration, so the same
+database serves either and switching one server between them is a checkout and
+a rebuild.
+
+**It publishes no images, on purpose.** Running it means building from a
+checkout on the machine that wants it (see **Running the rebuilt interface**),
+which leaves nothing in the registry for Watchtower to find anywhere else.
+Servers tracking `latest` carry on as they were and cannot be moved onto it by
+an update.
+
+It still runs every gate on every push -- tests, lint, type check, the stack
+smoke test and the browser suite -- so it stays deployable.
 
 ## Prerequisites
 
@@ -297,6 +315,66 @@ proxy only needs port 7999.
 
 **5. Open it, create a profile, done.**
 
+### Running the rebuilt interface
+
+One server can run `ui-rebuild` while every other keeps tracking `latest`.
+The separation is that the rebuilt branch publishes nothing, so there is no
+image for the others to pull and nothing to reconfigure on them.
+
+**1. Take the current stack down**, with the same files you brought it up
+with. Without the GHCR override in the command, Compose does not know
+Watchtower is there and leaves it running as an orphan.
+
+```bash
+cd train-hard
+docker compose -f docker-compose.yml -f docker-compose.ghcr.yml -f docker-compose.proxy.yml down
+```
+
+No `-v`. The data lives in named volumes and is meant to survive this.
+
+**2. Switch to the branch.**
+
+```bash
+git fetch origin
+git switch ui-rebuild
+```
+
+**3. Bring it up, building locally -- with no GHCR override.**
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.proxy.yml up -d --build
+```
+
+Drop `-f docker-compose.proxy.yml` if this machine is not behind a reverse
+proxy. The first build takes a few minutes; after that only changed layers
+rebuild.
+
+**4. Check it.**
+
+```bash
+docker compose ps                     # three services, healthy
+docker ps --filter name=watchtower    # nothing
+curl -I http://localhost:7999/        # or whatever FRONTEND_HOST_PORT you set
+```
+
+Watchtower is defined only in `docker-compose.ghcr.yml`, and the opt-in label
+it obeys is only applied there too -- so a stack built this way has no
+Watchtower in it, and its containers would be ignored even by one left running
+by mistake.
+
+**Updating it** is `git pull && docker compose -f docker-compose.yml -f
+docker-compose.proxy.yml up -d --build`, when you choose to, rather than
+whenever a tag moves.
+
+**Going back** is the same in reverse, and loses nothing: the rebuilt
+interface reads and writes exactly what the old one does.
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.proxy.yml down
+git switch main
+docker compose -f docker-compose.yml -f docker-compose.ghcr.yml -f docker-compose.proxy.yml up -d
+```
+
 ### Keeping it updated
 
 `docker-compose.ghcr.yml` runs Watchtower alongside the published images. It
@@ -405,7 +483,11 @@ pull request, and every `v*` tag.
 | Publish images | Builds and pushes `backend` and `frontend` to GHCR |
 
 The publish job `needs` all three gates, so nothing ships unless the tests
-pass. It skips pull requests entirely.
+pass. It skips pull requests entirely, and it names the branches that ship
+rather than inferring them: `main`, `japanese` and `v*` tags. A branch added
+to the trigger list gets the gates and not the registry, which is why
+`ui-rebuild` can be tested on every push without producing anything a
+Watchtower could pull.
 
 ### Images
 
