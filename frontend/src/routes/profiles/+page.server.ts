@@ -9,6 +9,7 @@ import {
 	profileCookieOptions,
 	THEME_COOKIE,
 	themeCookieOptions,
+	themeOf,
 	toProfile
 } from '$lib/server/profile';
 import type { PageServerLoad } from './$types';
@@ -17,10 +18,9 @@ type BackendProfile = {
 	object_id: string;
 	name: string;
 	timestamp: string;
-	dark_mode?: boolean;
 };
 
-export type Profile = {
+export type ProfileSummary = {
 	objectId: string;
 	name: string;
 };
@@ -30,7 +30,7 @@ export type Profile = {
  * to the backend directly rather than through the /api proxy routes (which all
  * require locals.profileId).
  */
-async function listProfiles(): Promise<Profile[]> {
+async function listProfiles(): Promise<ProfileSummary[]> {
 	const response = await fetch(`${env.HARD_API}/profiles`);
 
 	if (!response.ok) {
@@ -44,7 +44,7 @@ async function listProfiles(): Promise<Profile[]> {
 }
 
 export const load: PageServerLoad = async ({ locals, url }) => {
-	let profiles: Profile[] = [];
+	let profiles: ProfileSummary[] = [];
 	let error: string | null = null;
 
 	try {
@@ -70,7 +70,7 @@ export const actions: Actions = {
 		const redirectTo = String(data.get('redirectTo') ?? '/');
 
 		if (!profileId) {
-			return fail(400, { message: 'Pick a profile' });
+			return fail(400, { message: 'needChoice', status: 400 });
 		}
 
 		forgetProfile(profileId);
@@ -83,7 +83,7 @@ export const actions: Actions = {
 		const lookup = await fetchProfile(profileId);
 		cookies.set(
 			THEME_COOKIE,
-			lookup.status === 'ok' && lookup.profile.darkMode ? 'dark' : 'light',
+			themeOf(lookup.status === 'ok' && lookup.profile.darkMode),
 			themeCookieOptions(url)
 		);
 
@@ -96,7 +96,7 @@ export const actions: Actions = {
 		const redirectTo = String(data.get('redirectTo') ?? '/');
 
 		if (!name) {
-			return fail(400, { message: 'Give the profile a name' });
+			return fail(400, { message: 'needName', status: 400 });
 		}
 
 		const response = await fetch(`${env.HARD_API}/profiles`, {
@@ -106,16 +106,14 @@ export const actions: Actions = {
 		});
 
 		if (!response.ok) {
-			return fail(response.status, {
-				message: `Could not create profile (${response.status})`
-			});
+			return fail(response.status, { message: 'createFailed', status: response.status });
 		}
 
 		// Through the shared mapper, so a new preference field does not need
 		// remembering in a second place.
 		const created = cacheProfile(toProfile(await response.json()));
 		cookies.set(PROFILE_COOKIE, created.objectId, profileCookieOptions(url));
-		cookies.set(THEME_COOKIE, 'light', themeCookieOptions(url));
+		cookies.set(THEME_COOKIE, themeOf(created.darkMode), themeCookieOptions(url));
 		redirect(303, redirectTo);
 	},
 

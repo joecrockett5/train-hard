@@ -1,0 +1,164 @@
+/**
+ * Design tokens.
+ *
+ * Every colour, size, radius and duration in the app resolves to something
+ * named here. Nothing downstream writes a hex, a pixel font size or a
+ * millisecond count of its own.
+ *
+ * Dark is a *selected* palette, not an inversion: its surfaces, its inks and
+ * its status colours are their own steps, each checked against the surface it
+ * actually sits on. See docs/branding.md for the measured ratios.
+ */
+
+:root {
+	color-scheme: light;
+
+	/* ---- brand -----------------------------------------------------------
+	 * The ramp is a graphic: the mark, the chart line, the primary action.
+	 * It is never text. `--brand` is the solid that is, and `--on-brand` is
+	 * what goes on top of the ramp -- near-black, because white falls to
+	 * 1.8:1 against the amber end and is unreadable over half of any
+	 * gradient.
+	 */
+	--brand-from: #ef6c1a;
+	--brand-to: #fbb724;
+	--brand: #b34d08;
+	--on-brand: #14110f;
+	--brand-wash: rgb(239 108 26 / 0.1);
+	--brand-ramp: linear-gradient(135deg, var(--brand-from), var(--brand-to));
+
+	/* Kept under their old names so the chart stays brand-coloured by
+	 * construction rather than by a copied pair of hexes. */
+	--chart-from: var(--brand-from);
+	--chart-to: var(--brand-to);
+
+	/* ---- surfaces -------------------------------------------------------- */
+	--surface: #fbfaf9;
+	--surface-raised: #ffffff;
+	--surface-sunken: #f4f2f0;
+	--surface-overlay: #ffffff;
+	--surface-hover: #f1efed;
+	--scrim: rgb(20 17 15 / 0.45);
+
+	/* ---- ink ------------------------------------------------------------- */
+	--ink: #1c1917;
+	--ink-muted: #57534e;
+	--ink-subtle: #78716c;
+	--ink-inverse: #fafaf9;
+
+	/* ---- lines ----------------------------------------------------------- */
+	--line: #e7e4e1;
+	--line-strong: #d6d1cc;
+	/* Control boundaries carry meaning, so they clear 3:1 (WCAG 1.4.11). */
+	--field-line: #8a827b;
+
+	/* ---- status ---------------------------------------------------------- */
+	--danger: #b91c1c;
+	--danger-solid: #b91c1c;
+	--on-danger: #ffffff;
+	--danger-wash: rgb(185 28 28 / 0.08);
+	--positive: #15803d;
+
+	/* ---- type ------------------------------------------------------------
+	 * One face, from the system. No web font: this is a self-hosted PWA that
+	 * has to work on a bad connection, and a font request is a render-blocking
+	 * round trip. The Japanese faces are in the stack because the `japanese`
+	 * build has to become a locale rather than stay a fork.
+	 */
+	--font-sans:
+		-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Hiragino Sans',
+		'Yu Gothic', 'Noto Sans JP', sans-serif;
+
+	--text-2xs: 0.6875rem;
+	--text-xs: 0.75rem;
+	--text-sm: 0.875rem;
+	--text-base: 1rem;
+	--text-lg: 1.125rem;
+	--text-xl: 1.375rem;
+	--text-2xl: 1.75rem;
+	--text-3xl: 2.125rem;
+
+	--leading-tight: 1.2;
+	--leading-snug: 1.35;
+	--leading-normal: 1.55;
+
+	/* ---- space ----------------------------------------------------------- */
+	--space-1: 0.25rem;
+	--space-2: 0.5rem;
+	--space-3: 0.75rem;
+	--space-4: 1rem;
+	--space-5: 1.25rem;
+	--space-6: 1.5rem;
+	--space-8: 2rem;
+	--space-10: 3rem;
+	--space-12: 4rem;
+
+	/* ---- radius ---------------------------------------------------------- */
+	--radius-sm: 0.5rem;
+	--radius-md: 0.75rem;
+	--radius-lg: 1rem;
+	--radius-xl: 1.375rem;
+	--radius-full: 999px;
+
+	/* ---- elevation -------------------------------------------------------
+	 * Warm-tinted rather than neutral black, so a card's shadow does not go
+	 * grey next to the amber ramp.
+	 */
+	--shadow-1: 0 1px 2px rgb(28 25 23 / 0.06), 0 1px 3px rgb(28 25 23 / 0.04);
+	--shadow-2: 0 2px 6px rgb(28 25 23 / 0.07), 0 8px 20px rgb(28 25 23 / 0.06);
+	--shadow-3: 0 10px 34px rgb(28 25 23 / 0.16), 0 2px 8px rgb(28 25 23 / 0.08);
+
+	/* ---- motion ---------------------------------------------------------- */
+	--dur-fast: 120ms;
+	--dur: 180ms;
+	--dur-slow: 260ms;
+	--ease: cubic-bezier(0.2, 0.8, 0.3, 1);
+
+	/* ---- layout ---------------------------------------------------------- */
+	--gutter: var(--space-4);
+	--column: 40rem;
+	--wide-column: 64rem;
+	--tab-bar: 3.75rem;
+	--app-bar: 3.5rem;
+	/* The smallest a thing you tap is allowed to be. */
+	--touch: 2.75rem;
+	--rail: 15rem;
+}
+
+:root[data-theme='dark'] {
+	color-scheme: dark;
+
+	--brand: #fba94c;
+	--brand-wash: rgb(251 183 36 / 0.12);
+
+	--surface: #14110f;
+	--surface-raised: #1c1917;
+	--surface-sunken: #100e0c;
+	--surface-overlay: #24201d;
+	--surface-hover: #272320;
+	--scrim: rgb(0 0 0 / 0.62);
+
+	--ink: #fafaf9;
+	--ink-muted: #c4beb8;
+	--ink-subtle: #a8a29e;
+	--ink-inverse: #1c1917;
+
+	--line: #302b27;
+	--line-strong: #45403a;
+	--field-line: #78716c;
+
+	--danger: #f87171;
+	--danger-solid: #dc2626;
+	--on-danger: #ffffff;
+	--danger-wash: rgb(248 113 113 / 0.12);
+	--positive: #4ade80;
+
+	/*
+	 * A shadow against #14110f is invisible, so dark mode elevates by raising
+	 * the surface and keeping a hairline instead. The tokens stay so that
+	 * components do not need to know which theme they are in.
+	 */
+	--shadow-1: 0 0 0 1px rgb(255 255 255 / 0.04);
+	--shadow-2: 0 0 0 1px rgb(255 255 255 / 0.06), 0 8px 24px rgb(0 0 0 / 0.4);
+	--shadow-3: 0 0 0 1px rgb(255 255 255 / 0.08), 0 16px 40px rgb(0 0 0 / 0.55);
+}

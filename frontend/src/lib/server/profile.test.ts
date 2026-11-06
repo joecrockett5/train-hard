@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { profileCookieOptions, themeClass, themeCookieOptions, toProfile } from './profile';
+import { profileCookieOptions, themeOf, themeCookieOptions, toProfile } from './profile';
 
 describe('profileCookieOptions', () => {
 	it('omits Secure over plain HTTP', () => {
@@ -38,10 +38,10 @@ describe('themeCookieOptions', () => {
 	});
 });
 
-describe('themeClass', () => {
-	it('is the class Tailwind looks for, or nothing', () => {
-		expect(themeClass(true)).toBe('dark');
-		expect(themeClass(false)).toBe('');
+describe('themeOf', () => {
+	it('is what <html data-theme> carries, which the token sheet keys off', () => {
+		expect(themeOf(true)).toBe('dark');
+		expect(themeOf(false)).toBe('light');
 	});
 });
 

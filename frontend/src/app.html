@@ -1,15 +1,17 @@
 <!doctype html>
-<html lang="en" class="%theme%">
+<html lang="%lang%" data-theme="%theme%">
 	<head>
 		<meta charset="utf-8" />
-		<link rel="icon" href="%sveltekit.assets%/favicon.png" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+
+		<link rel="icon" href="%sveltekit.assets%/favicon.svg" type="image/svg+xml" />
+		<link rel="alternate icon" href="%sveltekit.assets%/favicon.png" sizes="32x32" />
 		<!--
 			iOS uses this for "Add to Home Screen", not the manifest's icons,
 			and it wants 180x180. The image is square and opaque on purpose:
 			iOS applies its own rounded mask, and a transparent corner would
 			be composited onto black.
-		-->
-		<!--
+
 			`?v` is a cache buster, not decoration. iOS remembers what it got
 			for an icon URL per origin, including having got nothing, and that
 			memory survives clearing Safari's website data -- so a phone that
@@ -19,22 +21,23 @@
 		<link
 			rel="apple-touch-icon"
 			sizes="180x180"
-			href="%sveltekit.assets%/apple-touch-icon.png?v=2"
+			href="%sveltekit.assets%/apple-touch-icon.png?v=3"
 		/>
 		<link rel="manifest" href="%sveltekit.assets%/manifest.webmanifest" />
-		<meta name="theme-color" content="#e4572e" />
+
+		<!--
+			Matched to the theme being painted, so the iOS status bar and the
+			Android title bar are the app's own background rather than a fixed
+			colour that is wrong in one theme.
+		-->
+		<meta name="theme-color" content="%themeColor%" />
 		<meta name="mobile-web-app-capable" content="yes" />
 		<meta name="apple-mobile-web-app-capable" content="yes" />
-		<meta name="apple-mobile-web-app-title" content="hard" />
-		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+		<meta name="apple-mobile-web-app-title" content="train hard" />
 		%sveltekit.head%
-		<script>
-			var global = global || window;
-			var Buffer = Buffer || [];
-			var process = process || { env: { DEBUG: undefined }, version: [] };
-		</script>
 	</head>
 	<body data-sveltekit-preload-data="hover">
-		<div style="display: contents">%sveltekit.body%</div>
+		%sveltekit.body%
 	</body>
 </html>

@@ -1,202 +1,139 @@
 <script lang="ts">
 	import '../app.css';
-
 	import { browser } from '$app/environment';
 	import { afterNavigate } from '$app/navigation';
-	import * as Sheet from '$lib/components/ui/sheet/index.js';
-	import { ScrollArea } from '$lib/components/ui/scroll-area/index.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import MenuIcon from '$lib/svg/menu-icon.svelte';
-	import ThemeToggle from '$lib/hard-components/theme-toggle.svelte';
-	import UnitToggle from '$lib/hard-components/unit-toggle.svelte';
-	import { weightUnit } from '$lib/units';
-	import { darkMode } from '$lib/theme';
-	import type { WorkoutInfo } from '$lib/types';
+	import Navigation from '$lib/components/Navigation.svelte';
+	import Toaster from '$ui/Toaster.svelte';
+	import { providePreferences } from '$lib/preferences.svelte';
+	import { setLocale, t } from '$lib/i18n';
+	import type { LayoutData } from './$types';
 
-	export let data;
+	let { data, children }: { data: LayoutData; children: import('svelte').Snippet } = $props();
+
+	/*
+	 * Before anything renders, so the first component to read a string gets
+	 * the right catalogue. On the server the locale is already set from the
+	 * environment; this is what carries it across to the browser.
+	 */
+	// svelte-ignore state_referenced_locally
+	setLocale(data.locale);
+
+	// The profile the page was served with; the effect below keeps it current.
+	// svelte-ignore state_referenced_locally
+	const prefs = providePreferences(data.profile);
+
+	// A navigation, or a profile switch, brings the server's copy over. The
+	// object decides whether to take it; see Preferences.adopt.
+	$effect(() => {
+		if (data.profile) {
+			prefs.adopt(data.profile);
+		}
+	});
+
+	/**
+	 * Keeps the theme on <html> in step with the active profile.
+	 *
+	 * hooks.server.ts puts it there so the first paint is right, but that
+	 * only happens for a full document load. The profile picker submits with
+	 * `use:enhance`, so choosing a profile is a client-side navigation and the
+	 * document -- attribute and all -- is never replaced; without this,
+	 * switching from a dark profile to a light one left the old theme on
+	 * screen until the next hard reload.
+	 */
+	$effect(() => {
+		if (!browser) {
+			return;
+		}
+
+		const theme = prefs.darkMode ? 'dark' : 'light';
+		document.documentElement.dataset.theme = theme;
+		document
+			.querySelector('meta[name="theme-color"]')
+			?.setAttribute('content', theme === 'dark' ? '#14110f' : '#fbfaf9');
+	});
 
 	/**
 	 * Every screen opens at the top.
 	 *
 	 * SvelteKit already does this for a plain link, but not for back and
 	 * forward, where it restores the old position, and not for a `goto` to
-	 * the route you are already on -- which is how the workout page reloads
-	 * itself after a set is deleted, landing you mid-page.
+	 * the route you are already on -- which is how a page reloads itself
+	 * after a delete, landing you mid-list.
 	 */
 	afterNavigate(() => {
 		window.scrollTo(0, 0);
 	});
-
-	let serverDarkMode: boolean | undefined;
-
-	/**
-	 * The theme, from the active profile.
-	 *
-	 * Guarded the same way as the unit below: applied when the server's own
-	 * value changes, never on every update, or toggling would be undone by
-	 * the profile the page was loaded with.
-	 */
-	$: if (data.profile && data.profile.darkMode !== serverDarkMode) {
-		serverDarkMode = data.profile.darkMode;
-		darkMode.set(serverDarkMode);
-	}
-
-	let serverUnit: 'kg' | 'lbs' | undefined;
-
-	/**
-	 * The unit every weight in the app is shown in, from the active profile.
-	 *
-	 * Set here rather than passed down: a set's weight is rendered several
-	 * components deep, and this follows the profile exactly as the theme
-	 * does.
-	 *
-	 * Only applied when the server's own value changes -- first load, a
-	 * profile switch, or a reload after it was changed elsewhere. Setting it
-	 * on every update would undo the toggle, since the profile the page was
-	 * loaded with still says what it said then.
-	 */
-	$: if (data.profile && data.profile.weightUnit !== serverUnit) {
-		serverUnit = data.profile.weightUnit;
-		weightUnit.set(serverUnit);
-	}
-
-	let sheetOpen = false;
-	let recent: WorkoutInfo[] = [];
-	let loadedRecent = false;
-
-	/**
-	 * The last couple of workouts, for getting back into one.
-	 *
-	 * Fetched when the sheet is first opened rather than in the layout's
-	 * load: the sheet is opened occasionally, and the alternative is listing
-	 * every workout on every page render.
-	 */
-	async function loadRecent() {
-		if (loadedRecent) {
-			return;
-		}
-		loadedRecent = true;
-
-		try {
-			const response = await fetch('/api/workouts');
-
-			if (!response.ok) {
-				throw new Error(`Backend returned ${response.status}`);
-			}
-
-			const workouts: WorkoutInfo[] = await response.json();
-			recent = workouts
-				.sort(
-					(a, b) =>
-						b.workoutDate.localeCompare(a.workoutDate) ||
-						(b.timestamp ?? '').localeCompare(a.timestamp ?? '')
-				)
-				.slice(0, 2);
-		} catch (error) {
-			console.error('Failed to load recent workouts: ', error);
-			// Let the next open try again rather than leaving the section empty.
-			loadedRecent = false;
-		}
-	}
-
-	$: if (sheetOpen) {
-		loadRecent();
-	}
-
-	function shortDate(isoDate: string): string {
-		return new Date(`${isoDate}T00:00:00Z`).toLocaleDateString('en-GB', {
-			day: 'numeric',
-			month: 'short',
-			timeZone: 'UTC'
-		});
-	}
-
-	/**
-	 * Keeps the theme class in step with the active profile.
-	 *
-	 * hooks.server.ts puts the class on <html> so the first paint is right,
-	 * but that only happens for a full document load. The profile picker
-	 * submits with `use:enhance`, so choosing a profile is a client-side
-	 * navigation and the document -- class and all -- is never replaced;
-	 * without this, switching from a dark profile to a light one left the old
-	 * theme on screen until the next hard reload.
-	 *
-	 * This re-runs whenever the layout's data does, which is every navigation.
-	 * Toggling does not change `data`, so it does not fight the toggle.
-	 */
-	$: if (browser) {
-		document.documentElement.classList.toggle('dark', $darkMode);
-	}
 </script>
 
+<a href="#main" class="skip">{t.nav.skipToContent}</a>
+
 {#if data.profile}
-	<Sheet.Root bind:open={sheetOpen}>
-		<Sheet.Trigger asChild let:builder>
-			<!--
-				The logo's own ramp, via the `--chart-*` tokens, on a rounded
-				square: at this size it reads as a small version of the mark
-				rather than an unrelated button.
-			-->
-			<Button
-				builders={[builder]}
-				variant="ghost"
-				size="icon"
-				class="from-chart-from to-chart-to fixed right-4 bottom-4 z-50 h-14 w-14 rounded-xl bg-gradient-to-r text-white hover:opacity-90"
-			>
-				<MenuIcon class="h-14 w-14" />
-			</Button>
-		</Sheet.Trigger>
-		<Sheet.Content side="bottom">
-			<Sheet.Header>
-				<Sheet.Close>
-					<Sheet.Title><a href="/">hard</a></Sheet.Title>
-					<Sheet.Description>Training app</Sheet.Description>
-				</Sheet.Close>
-			</Sheet.Header>
-			<Sheet.Close class="w-full">
-				<div class="grid gap-2 py-4">
-					<div class="grid grid-cols-2 items-center gap-4">
-						<Button href="/workouts" variant="secondary" class="h-20">Workouts</Button>
-						<Button href="/exercises" variant="secondary" class="h-20">Exercises</Button>
-						<Button href="/body-weight" variant="secondary" class="h-20">Body Weight</Button>
-						<Button href="/templates" variant="secondary" class="h-20">Templates</Button>
-					</div>
-				</div>
-			</Sheet.Close>
-			{#if recent.length > 0}
-				<Sheet.Close class="w-full">
-					<div class="border-border border-t pt-3 pb-1">
-						<p class="text-muted-foreground mb-2 text-left text-xs font-semibold">Recent</p>
-						<div class="grid gap-2">
-							{#each recent as workout (workout.objectId)}
-								<Button
-									href="/workouts/{workout.objectId}"
-									variant="outline"
-									class="w-full justify-between text-gray-400"
-								>
-									<span class="truncate">{workout.title}</span>
-									<span class="ml-2 shrink-0 text-xs">{shortDate(workout.workoutDate)}</span>
-								</Button>
-							{/each}
-						</div>
-					</div>
-				</Sheet.Close>
-			{/if}
-			<div class="mt-3 flex items-center gap-2">
-				<form method="POST" action="/profiles?/switch" class="flex-1">
-					<Button type="submit" variant="ghost" class="w-full">
-						{data.profile.name} · Switch profile
-					</Button>
-				</form>
-				<UnitToggle />
-				<ThemeToggle />
-			</div>
-		</Sheet.Content>
-	</Sheet.Root>
+	<Navigation />
 {/if}
 
-<div class="mx-4 mb-4">
-	<ScrollArea>
-		<slot />
-	</ScrollArea>
+<div class="shell" class:gated={!data.profile}>
+	<main id="main" tabindex="-1">
+		{@render children()}
+	</main>
 </div>
+
+<Toaster />
+
+<style>
+	.skip {
+		position: fixed;
+		top: var(--space-2);
+		left: var(--space-2);
+		z-index: 100;
+		padding: var(--space-2) var(--space-4);
+		background: var(--surface-overlay);
+		border: 1px solid var(--brand);
+		border-radius: var(--radius-md);
+		font-size: var(--text-sm);
+		font-weight: 600;
+		transform: translateY(-200%);
+	}
+
+	.skip:focus {
+		transform: none;
+	}
+
+	main {
+		width: 100%;
+		max-width: var(--column);
+		margin-inline: auto;
+		padding: var(--space-4) var(--gutter)
+			calc(var(--tab-bar) + env(safe-area-inset-bottom) + var(--space-8));
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-4);
+	}
+
+	main:focus {
+		outline: none;
+	}
+
+	/* No navigation on the picker, so the column centres on the screen. */
+	.gated main {
+		max-width: 26rem;
+		padding-bottom: var(--space-8);
+		min-height: 100svh;
+		justify-content: center;
+	}
+
+	@media (min-width: 52rem) {
+		.shell {
+			padding-left: var(--rail);
+		}
+
+		.shell.gated {
+			padding-left: 0;
+		}
+
+		main {
+			max-width: var(--wide-column);
+			padding: var(--space-6) var(--space-6) var(--space-10);
+			gap: var(--space-5);
+		}
+	}
+</style>

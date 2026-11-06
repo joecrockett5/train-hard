@@ -1,92 +1,180 @@
 <script lang="ts">
-	import * as Card from '$lib/components/ui/card';
-	import ExerciseInfoComponent from '$lib/hard-components/exercise-info.svelte';
-	import NewExercise from '$lib/hard-components/new-exercise.svelte';
-	import { type Exercise, type Tag } from '$lib/types';
-	import Pager, { PAGE_SIZE } from '$lib/hard-components/pager.svelte';
-	import TagFilter from '$lib/hard-components/tag-filter.svelte';
+	import Card from '$ui/Card.svelte';
+	import Button from '$ui/Button.svelte';
+	import Pager from '$ui/Pager.svelte';
+	import EmptyState from '$ui/EmptyState.svelte';
+	import Field from '$ui/Field.svelte';
+	import TextInput from '$ui/TextInput.svelte';
+	import { pageOf } from '$ui/paging';
+	import ExerciseRow from '$lib/components/ExerciseRow.svelte';
+	import ExerciseDialog from '$lib/components/ExerciseDialog.svelte';
+	import TagFilter from '$lib/components/TagFilter.svelte';
 	import { filterByTags } from '$lib/tags';
+	import { t } from '$lib/i18n';
+	import type { Exercise, Tag } from '$lib/types';
+	import type { PageData } from './$types';
 
-	export let data;
-
-	let page = 1;
+	let { data }: { data: PageData } = $props();
 
 	// Newest first: the exercise you just made is the one you are looking for.
-	let exercises: Exercise[] = data.exercises.sort(
-		(a: Exercise, b: Exercise) =>
-			new Date(b.timestamp ?? 0).getTime() - new Date(a.timestamp ?? 0).getTime()
+	let exercises = $state<Exercise[]>([]);
+	let allTags = $state<Tag[]>([]);
+
+	$effect(() => {
+		exercises = data.exercises
+			.slice()
+			.sort((a: Exercise, b: Exercise) => (b.timestamp ?? '').localeCompare(a.timestamp ?? ''));
+	});
+
+	$effect(() => {
+		allTags = data.tags;
+	});
+
+	let search = $state('');
+	let selectedTagIds = $state<string[]>([]);
+	let page = $state(1);
+	let editing = $state<Exercise | undefined>(undefined);
+	let dialogOpen = $state(false);
+
+	const matching = $derived(
+		filterByTags(exercises, selectedTagIds).filter((exercise) => {
+			const needle = search.trim().toLowerCase();
+
+			return (
+				!needle ||
+				exercise.name.toLowerCase().includes(needle) ||
+				exercise.description.toLowerCase().includes(needle)
+			);
+		})
 	);
-	let allTags: Tag[] = data.tags;
-	let selectedTagIds: string[] = [];
 
-	$: matching = filterByTags(exercises, selectedTagIds);
+	const visible = $derived(pageOf(matching, page));
+	const narrowed = $derived(selectedTagIds.length > 0 || search.trim().length > 0);
 
-	$: viewableExercises = matching.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+	function open(exercise?: Exercise) {
+		editing = exercise;
+		dialogOpen = true;
+	}
 
-	async function deleteExercise(exercise: Exercise) {
-		const response = await fetch(`/api/exercises/${exercise.objectId}`, {
-			method: 'DELETE'
-		});
+	function saved(exercise: Exercise) {
+		exercises = editing
+			? exercises.map((each) => (each.objectId === exercise.objectId ? exercise : each))
+			: [exercise, ...exercises];
+	}
 
-		if (!response.ok) {
-			console.error('Failed to delete exercise: ', exercise);
-		} else {
-			exercises = exercises.filter((e: Exercise) => e.objectId !== exercise.objectId);
+	async function remove(exercise: Exercise) {
+		try {
+			const response = await fetch(`/api/exercises/${exercise.objectId}`, { method: 'DELETE' });
+
+			if (!response.ok) {
+				throw new Error(`Backend returned ${response.status}`);
+			}
+
+			exercises = exercises.filter((each) => each.objectId !== exercise.objectId);
+		} catch (error) {
+			console.error('Could not delete the exercise: ', error);
 		}
 	}
 </script>
 
 <svelte:head>
-	<title>hard: Exercises</title>
+	<title>{t.app.name} · {t.exercises.title}</title>
 </svelte:head>
 
-<Card.Root class="mt-4">
-	<Card.Header>
-		<Card.Title>Exercises</Card.Title>
-		<Card.Description>
-			{#if selectedTagIds.length > 0}
-				{matching.length} of {exercises.length} exercises
-			{:else}
-				All exercises
-			{/if}
-		</Card.Description>
-	</Card.Header>
-	<Card.Content class="pt-0">
+<header class="screen-head">
+	<div>
+		<h1>{t.exercises.title}</h1>
+		<p>
+			{narrowed ? t.exercises.matching(matching.length, exercises.length) : t.exercises.all}
+		</p>
+	</div>
+	<Button variant="primary" icon="plus" onclick={() => open()}>{t.exercises.newExercise}</Button>
+</header>
+
+<Card>
+	<div class="filters">
+		<Field id="exercises-search" label={t.common.search} hideLabel>
+			{#snippet children({ id, describedBy })}
+				<TextInput
+					{id}
+					{describedBy}
+					type="search"
+					inputmode="search"
+					bind:value={search}
+					placeholder={t.workouts.searchPlaceholder}
+					oninput={() => (page = 1)}
+				/>
+			{/snippet}
+		</Field>
 		<!--
-			The page is reset here, on the event, rather than in a `$:` block
-			watching the filter. Svelte invalidates a reactive statement's
-			dependencies whenever anything else writes a variable that
-			statement assigns, so a block doing `page = 1` re-ran on every
-			write the pager's `bind:page` made, and sent each click on page 2
-			straight back to page 1.
+			The page resets from the event rather than from an effect watching
+			the filter: an effect that assigns `page` re-runs on the pager's
+			own writes, and every click on page 2 goes straight back to 1.
 		-->
-		<TagFilter tags={allTags} bind:selected={selectedTagIds} on:change={() => (page = 1)} />
-	</Card.Content>
-</Card.Root>
+		<TagFilter tags={allTags} bind:selected={selectedTagIds} onchange={() => (page = 1)} />
+	</div>
+</Card>
 
-<NewExercise
-	bind:allTags
-	onCreated={(exercise) => {
-		exercises = [exercise, ...exercises];
-	}}
-/>
-
-<Pager count={matching.length} bind:page />
-
-{#each viewableExercises as exercise (exercise.objectId)}
-	<ExerciseInfoComponent {exercise} bind:allTags deletionCallback={deleteExercise} />
-{/each}
-
-{#if matching.length === 0}
-	<!--
-		Not "match those tags": this shows when the list is empty for any
-		reason, including a profile with no exercises at all and no filter
-		set, where blaming the tags described something the reader had not
-		done.
-	-->
-	<p class="text-muted-foreground mt-8 text-center text-sm">No exercises match.</p>
+{#if matching.length > 0}
+	<ul>
+		{#each visible as exercise (exercise.objectId)}
+			<li><ExerciseRow {exercise} onedit={open} /></li>
+		{/each}
+	</ul>
+	<Pager count={matching.length} bind:page />
+{:else}
+	<Card>
+		<!--
+			Not "no exercises match those tags": this shows when the list is
+			empty for any reason, including a profile with no exercises at all,
+			where blaming the filter describes something nobody did.
+		-->
+		<EmptyState icon="list" title={narrowed ? t.exercises.none : t.exercises.noneAtAll}>
+			{#snippet action()}
+				<Button variant="outline" icon="plus" onclick={() => open()}>
+					{t.exercises.newExercise}
+				</Button>
+			{/snippet}
+		</EmptyState>
+	</Card>
 {/if}
 
-<div class="mb-8" />
+<ExerciseDialog
+	bind:open={dialogOpen}
+	exercise={editing}
+	bind:allTags
+	onsaved={saved}
+	ondelete={remove}
+/>
 
-<Pager count={matching.length} bind:page />
+<style>
+	.screen-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-3);
+	}
+
+	h1 {
+		font-size: var(--text-xl);
+		font-weight: 700;
+		letter-spacing: -0.02em;
+	}
+
+	.screen-head p {
+		font-size: var(--text-sm);
+		color: var(--ink-subtle);
+	}
+
+	.filters {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+	}
+
+	ul {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+	}
+</style>

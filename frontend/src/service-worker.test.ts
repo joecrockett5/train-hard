@@ -13,9 +13,18 @@ import { build, files, version } from '$service-worker';
 
 const ORIGIN = 'https://training.jmedia';
 /** Mirrors the worker's own list, so a change there has to be made twice. */
-const OS_FETCHED = ['/manifest.webmanifest', '/apple-touch-icon.png', '/favicon.png'];
+const OS_FETCHED = [
+	'/manifest.webmanifest',
+	'/apple-touch-icon.png',
+	'/favicon.png',
+	'/favicon.svg',
+	'/icon-192.png',
+	'/icon-512.png',
+	'/icon-maskable-192.png',
+	'/icon-maskable-512.png'
+];
 const PRECACHE = [...build, ...files].filter((path) => !OS_FETCHED.includes(path));
-const CACHE = `hard-cache-${version}`;
+const CACHE = `train-hard-${version}`;
 
 type Listener = (event: unknown) => void;
 
@@ -180,7 +189,7 @@ describe('install', () => {
 describe('activate', () => {
 	it('deletes the previous build’s cache and claims open pages', async () => {
 		await install();
-		stores.set('hard-cache-older', new FakeCache());
+		stores.set('train-hard-older', new FakeCache());
 
 		await activate();
 
@@ -276,7 +285,7 @@ describe('requests the worker keeps out of', () => {
 	it('still precaches the assets the app itself uses', async () => {
 		await install();
 
-		expect([...cached().entries.keys()]).toContain(absolute('/hard-logo.png'));
+		expect([...cached().entries.keys()]).toContain(absolute('/brand/logo-mark.svg'));
 	});
 
 	it('leaves anything that is not a GET', () => {

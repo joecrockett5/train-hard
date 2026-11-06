@@ -24,7 +24,11 @@ function stubFetch(exercises: Partial<Exercise>[], { failOn = '' } = {}) {
 		}
 
 		joined.push(body.exerciseId);
-		return new Response('{}', { status: 201 });
+		// The real endpoint answers with the join it created, whose id is
+		// what the sets in this workout will hang off.
+		return new Response(JSON.stringify({ objectId: `exercise-join-${body.exerciseId}` }), {
+			status: 201
+		});
 	});
 
 	return { fetcher: fetcher as unknown as typeof fetch, joined };
@@ -40,14 +44,15 @@ describe('importTemplate', () => {
 		expect(added.map((e) => e.name)).toEqual(['Squat', 'Leg press']);
 	});
 
-	it("drops the template's join id, which means something else in a workout", async () => {
+	it("replaces the template's join id with the workout's own", async () => {
 		// The workout page keys its list on joinId and reads it as the join
-		// the sets hang off. Carried across, it pointed at a template join.
+		// the sets hang off. Carried across unchanged it pointed at a template
+		// join; dropped entirely, logging a set had to go and look it up.
 		const { fetcher } = stubFetch([{ ...exercise('a', 'Squat'), joinId: 'template-join-1' }]);
 
 		const [added] = await importTemplate('t1', 'w1', [], fetcher);
 
-		expect(added.joinId).toBeUndefined();
+		expect(added.joinId).toBe('exercise-join-a');
 		expect(added.sets).toEqual([]);
 	});
 
@@ -110,7 +115,11 @@ function stubCreate({ failTag = '', failExercise = '', createStatus = 201 } = {}
 			return new Response('no', { status: 500 });
 		}
 		joined.push(body.exerciseId);
-		return new Response('{}', { status: 201 });
+		// The real endpoint answers with the join it created, whose id is
+		// what the sets in this workout will hang off.
+		return new Response(JSON.stringify({ objectId: `exercise-join-${body.exerciseId}` }), {
+			status: 201
+		});
 	});
 
 	return { fetcher: fetcher as unknown as typeof fetch, tagged, joined };

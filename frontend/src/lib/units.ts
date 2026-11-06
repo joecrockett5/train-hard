@@ -7,22 +7,18 @@
  * the round trip.
  */
 
-import { writable } from 'svelte/store';
-
 export type WeightUnit = 'kg' | 'lbs';
 
 /** The definition of the pound, so the conversion is exact in one direction. */
 export const KG_PER_LB = 0.45359237;
 
-/**
- * The unit the app is currently showing weights in.
- *
- * A store rather than a prop: the preference belongs to the profile and is
- * read several components deep -- a set inside an exercise inside a workout
- * -- and threading it through every layer would be noise. The layout sets it
- * from the profile, the same way it applies the theme.
+/*
+ * The unit itself lives on the preferences object in
+ * `$lib/preferences.svelte.ts`, which the layout puts in context. It is read
+ * several components deep -- a set inside an exercise inside a workout -- so
+ * it is not a prop; and it is not a module-level store either, because module
+ * state on the server is shared by every request being rendered at once.
  */
-export const weightUnit = writable<WeightUnit>('kg');
 
 /** Kilograms as stored, in the unit being shown. */
 export function toDisplayWeight(kilograms: number, unit: WeightUnit): number {

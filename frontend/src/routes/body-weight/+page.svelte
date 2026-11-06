@@ -1,166 +1,177 @@
 <script lang="ts">
-	import * as Card from '$lib/components/ui/card';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import Input from '$lib/components/ui/input/input.svelte';
-	import { buttonVariants } from '$lib/components/ui/button';
-	import NewItem from '$lib/hard-components/new-item.svelte';
-	import BodyWeightEntry from '$lib/hard-components/body-weight-entry.svelte';
-	import WeightChart from '$lib/hard-components/weight-chart.svelte';
-	import Pager, { PAGE_SIZE } from '$lib/hard-components/pager.svelte';
+	import Card from '$ui/Card.svelte';
+	import Button from '$ui/Button.svelte';
+	import Pager from '$ui/Pager.svelte';
+	import EmptyState from '$ui/EmptyState.svelte';
+	import { pageOf } from '$ui/paging';
+	import WeightChart from '$lib/components/WeightChart.svelte';
+	import WeighInCard from '$lib/components/WeighInCard.svelte';
+	import WeighInDialog from '$lib/components/WeighInDialog.svelte';
 	import { sortEntries } from '$lib/weight-chart';
-	import { toStoredWeight, weightUnit } from '$lib/units';
-	import { todayIso } from '$lib/dates';
-	import PhotoPicker from '$lib/hard-components/photo-picker.svelte';
-	import { Button } from '$lib/components/ui/button';
-	import Images from 'lucide-svelte/icons/images';
-	import { uploadPhotos } from '$lib/photos';
 	import { comparableWeighIns, widestPair } from '$lib/photo-comparison';
+	import { t } from '$lib/i18n';
 	import type { BodyWeight, ProgressPhoto } from '$lib/types';
+	import type { PageData } from './$types';
 
-	export let data;
+	let { data }: { data: PageData } = $props();
 
-	let entries: BodyWeight[] = data.bodyWeights;
-	let photos: ProgressPhoto[] = data.photos;
+	let entries = $state<BodyWeight[]>([]);
+	let photos = $state<ProgressPhoto[]>([]);
+
+	$effect(() => {
+		entries = data.bodyWeights;
+	});
+	$effect(() => {
+		photos = data.photos;
+	});
+
+	let editing = $state<BodyWeight | undefined>(undefined);
+	let dialogOpen = $state(false);
+	let page = $state(1);
 
 	// One lookup for the list below, rebuilt whenever a photo is added or
-	// removed so a card never has to ask for its own.
-	$: photosByEntry = photos.reduce((grouped: Map<string, ProgressPhoto[]>, photo) => {
-		const forEntry = grouped.get(photo.bodyWeightId) ?? [];
-		forEntry.push(photo);
-		grouped.set(photo.bodyWeightId, forEntry);
-		return grouped;
-	}, new Map());
+	// removed, so a card never has to ask for its own.
+	const photosByEntry = $derived(
+		photos.reduce((grouped: Map<string, ProgressPhoto[]>, photo) => {
+			const forEntry = grouped.get(photo.bodyWeightId) ?? [];
+			forEntry.push(photo);
+			grouped.set(photo.bodyWeightId, forEntry);
+			return grouped;
+		}, new Map())
+	);
 
-	// Offered only when there are two dates to put side by side, which is
-	// what the compare screen needs to show anything at all.
-	$: comparable = widestPair(comparableWeighIns(entries, photos)) !== null;
-
-	let page = 1;
+	// Offered only when there are two dates to put side by side, which is what
+	// the compare screen needs to show anything at all.
+	const comparable = $derived(widestPair(comparableWeighIns(entries, photos)) !== null);
 
 	// The chart reads oldest first; the list below reads newest first. The
-	// chart always plots every entry -- only the list below it is paged.
-	$: oldestFirst = sortEntries(entries);
-	$: newestFirst = oldestFirst.slice().reverse();
-	$: viewableEntries = newestFirst.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+	// chart always plots every entry -- only the list is paged.
+	const oldestFirst = $derived(sortEntries(entries));
+	const newestFirst = $derived(oldestFirst.slice().reverse());
+	const visible = $derived(pageOf(newestFirst, page));
 
-	let newDate = todayIso();
-	let newWeight = '';
-	let newNotes = '';
-	/** Held until the weigh-in exists, since a photo needs one to belong to. */
-	let newPhotos: File[] = [];
-
-	async function addEntry() {
-		if (!newWeight || !newDate) {
-			return;
-		}
-
-		const response = await fetch(`/api/body-weights`, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({
-				entryDate: newDate,
-				weight: toStoredWeight(Number(newWeight), $weightUnit),
-				notes: newNotes
-			})
-		});
-
-		if (!response.ok) {
-			console.error(`Unable to log a weight of ${newWeight}${$weightUnit}`);
-			return;
-		}
-
-		const created: BodyWeight = await response.json();
-		entries = [...entries, created];
-
-		if (newPhotos.length > 0) {
-			// The weigh-in is logged either way: a photo that fails to upload
-			// is worth a line in the console, not losing the reading.
-			photos = [...photos, ...(await uploadPhotos(newPhotos, created.objectId ?? ''))];
-		}
-
-		newDate = todayIso();
-		newWeight = '';
-		newNotes = '';
-		newPhotos = [];
+	function open(entry?: BodyWeight) {
+		editing = entry;
+		dialogOpen = true;
 	}
 
-	async function deleteEntry(entry: BodyWeight) {
-		const response = await fetch(`/api/body-weights/${entry.objectId}`, {
-			method: 'DELETE'
-		});
+	function saved(entry: BodyWeight, uploaded: ProgressPhoto[]) {
+		entries = editing
+			? entries.map((each) => (each.objectId === entry.objectId ? entry : each))
+			: [...entries, entry];
+		photos = [...photos, ...uploaded];
+	}
 
-		if (!response.ok) {
-			console.error('Failed to delete weigh-in: ', entry);
-		} else {
-			entries = entries.filter((e: BodyWeight) => e.objectId !== entry.objectId);
+	async function remove(entry: BodyWeight) {
+		try {
+			const response = await fetch(`/api/body-weights/${entry.objectId}`, { method: 'DELETE' });
+
+			if (!response.ok) {
+				throw new Error(`Backend returned ${response.status}`);
+			}
+
+			entries = entries.filter((each) => each.objectId !== entry.objectId);
 			// The backend deletes their files and rows with the weigh-in.
 			photos = photos.filter((photo) => photo.bodyWeightId !== entry.objectId);
+		} catch (error) {
+			console.error('Could not delete the weigh-in: ', error);
+		}
+	}
+
+	async function removePhoto(photo: ProgressPhoto) {
+		try {
+			const response = await fetch(`/api/progress-photos/${photo.objectId}`, {
+				method: 'DELETE'
+			});
+
+			if (!response.ok) {
+				throw new Error(`Backend returned ${response.status}`);
+			}
+
+			photos = photos.filter((each) => each.objectId !== photo.objectId);
+		} catch (error) {
+			console.error('Could not remove the photo: ', error);
 		}
 	}
 </script>
 
 <svelte:head>
-	<title>hard: Body Weight</title>
+	<title>{t.app.name} · {t.bodyWeight.title}</title>
 </svelte:head>
 
-<Card.Root class="mt-4">
-	<Card.Header>
-		<Card.Title>Body Weight</Card.Title>
-		<Card.Description>Every weigh-in for this profile</Card.Description>
-	</Card.Header>
-</Card.Root>
+<header class="screen-head">
+	<div>
+		<h1>{t.bodyWeight.title}</h1>
+		<p>{t.bodyWeight.subtitle}</p>
+	</div>
+	<Button variant="primary" icon="plus" onclick={() => open()}>{t.bodyWeight.addWeighIn}</Button>
+</header>
 
-<WeightChart entries={oldestFirst} />
+<Card>
+	<WeightChart entries={oldestFirst} />
+</Card>
 
 {#if comparable}
-	<Button href="/body-weight/compare" variant="outline" class="mt-4 w-full text-gray-400">
-		<Images class="mr-2 h-4 w-4" />
-		Compare photos
+	<Button variant="outline" icon="images" full href="/body-weight/compare">
+		{t.bodyWeight.comparePhotos}
 	</Button>
 {/if}
 
-<NewItem item="Weigh-in">
-	<label for="date">Date</label>
-	<Input type="date" bind:value={newDate} />
-	<label for="weight">Weight ({$weightUnit})</label>
-	<!--
-		`inputmode` rather than the type: it asks iOS for the decimal pad, the
-		big keypad with a decimal point, which is what a weight is typed on.
-	-->
-	<Input
-		type="number"
-		inputmode="decimal"
-		step="0.01"
-		min="0"
-		placeholder="Weight"
-		bind:value={newWeight}
-	/>
-	<label for="notes">Notes</label>
-	<Input placeholder="Notes" bind:value={newNotes} />
-	<PhotoPicker bind:files={newPhotos} />
-	<br />
-	<Dialog.Footer>
-		<Dialog.Close class={buttonVariants({ variant: 'default' })} on:click={addEntry}
-			>Add</Dialog.Close
-		>
-	</Dialog.Footer>
-</NewItem>
+{#if newestFirst.length > 0}
+	<ul>
+		{#each visible as entry (entry.objectId)}
+			<li>
+				<WeighInCard {entry} photos={photosByEntry.get(entry.objectId ?? '') ?? []} onedit={open} />
+			</li>
+		{/each}
+	</ul>
+	<Pager count={newestFirst.length} bind:page />
+{:else}
+	<Card>
+		<EmptyState icon="scale" title={t.bodyWeight.none}>
+			{#snippet action()}
+				<Button variant="outline" icon="plus" onclick={() => open()}>
+					{t.bodyWeight.addWeighIn}
+				</Button>
+			{/snippet}
+		</EmptyState>
+	</Card>
+{/if}
 
-<Pager count={newestFirst.length} bind:page />
+<WeighInDialog
+	bind:open={dialogOpen}
+	entry={editing}
+	photos={editing ? (photosByEntry.get(editing.objectId ?? '') ?? []) : []}
+	onsaved={saved}
+	ondelete={remove}
+	onphotoremoved={removePhoto}
+	onphotosadded={(added) => {
+		photos = [...photos, ...added];
+	}}
+/>
 
-{#each viewableEntries as entry (entry.objectId)}
-	<BodyWeightEntry
-		{entry}
-		deletionCallback={deleteEntry}
-		photos={photosByEntry.get(entry.objectId ?? '') ?? []}
-		on:added={(event) => (photos = [...photos, ...event.detail])}
-		on:removed={(event) =>
-			(photos = photos.filter((photo) => photo.objectId !== event.detail.objectId))}
-	/>
-{/each}
+<style>
+	.screen-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-3);
+	}
 
-<div class="mb-8" />
+	h1 {
+		font-size: var(--text-xl);
+		font-weight: 700;
+		letter-spacing: -0.02em;
+	}
 
-<Pager count={newestFirst.length} bind:page />
+	.screen-head p {
+		font-size: var(--text-sm);
+		color: var(--ink-subtle);
+	}
+
+	ul {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+	}
+</style>

@@ -4,7 +4,6 @@ import svelte from 'eslint-plugin-svelte';
 import prettier from 'eslint-config-prettier';
 import globals from 'globals';
 
-/** @type {import('eslint').Linter.FlatConfig[]} */
 export default [
 	js.configs.recommended,
 	...ts.configs.recommended,
@@ -20,24 +19,27 @@ export default [
 		}
 	},
 	{
-		files: ['**/*.svelte'],
+		files: ['**/*.svelte', '**/*.svelte.ts'],
 		languageOptions: {
 			parserOptions: {
 				parser: ts.parser
 			}
 		},
 		rules: {
-			// $$Props and $$Events declare a Svelte component's public
-			// contract. Nothing references them by name, so no-unused-vars
-			// flags every shadcn-svelte component; removing them would
-			// silently drop the component's typing.
-			'@typescript-eslint/no-unused-vars': [
-				'error',
-				{ varsIgnorePattern: '^\\$\\$(Props|Events|Slots|Generic)$' }
-			]
+			// TypeScript resolves what is in scope, including the type
+			// parameters a `generics` attribute declares, which this rule does
+			// not see and reports as undefined globals.
+			'no-undef': 'off'
 		}
 	},
 	{
-		ignores: ['build/', '.svelte-kit/', 'dist/']
+		// The service worker runs in its own global scope.
+		files: ['src/service-worker.ts'],
+		languageOptions: {
+			globals: { ...globals.serviceworker }
+		}
+	},
+	{
+		ignores: ['build/', '.svelte-kit/', 'dist/', 'node_modules/']
 	}
 ];

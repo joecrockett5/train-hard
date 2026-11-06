@@ -9,7 +9,7 @@ type DetailResponse = {
 };
 
 export const load = (async ({ fetch, params }) => {
-	// One request for the page, as the workout page does it. The tags are a
+	// One request for the page, as the workout screen does it. The tags are a
 	// second: the exercises carry their own, but creating one from the picker
 	// has to offer every tag, including unused ones.
 	const [response, tagsResponse] = await Promise.all([

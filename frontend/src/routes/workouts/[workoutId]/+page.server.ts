@@ -34,18 +34,17 @@ export const load = (async ({ fetch, params }) => {
 		const aSets = a.sets ?? [];
 		const bSets = b.sets ?? [];
 
-		const aHasSets = aSets.length > 0;
-		const bHasSets = bSets.length > 0;
-
 		// Exercises with at least one set come first.
-		if (aHasSets && !bHasSets) return -1;
-		if (!aHasSets && bHasSets) return 1;
-		if (!aHasSets && !bHasSets) return 0;
+		if (aSets.length > 0 !== bSets.length > 0) {
+			return aSets.length > 0 ? -1 : 1;
+		}
+
+		if (aSets.length === 0) {
+			return 0;
+		}
 
 		// Both have sets; order by when the first set was logged.
-		return (
-			new Date(aSets[0].timestamp ?? 0).getTime() - new Date(bSets[0].timestamp ?? 0).getTime()
-		);
+		return (aSets[0].timestamp ?? '').localeCompare(bSets[0].timestamp ?? '');
 	});
 
 	return { workoutInfo, exercises, allExercises, tags, templates };

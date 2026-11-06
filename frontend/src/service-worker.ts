@@ -15,9 +15,17 @@ import { base, build, files, version } from '$service-worker';
 
 const worker = self as unknown as ServiceWorkerGlobalScope;
 
+/*
+ * Not from the string catalogue. A service worker is its own bundle with no
+ * access to the app's modules at runtime, and this is the one sentence it
+ * ever shows -- in the rare case where the network is gone and the page was
+ * never cached. Translating it means translating it here too.
+ */
+const OFFLINE_MESSAGE = 'Cannot reach the app, and no copy of this page is stored on this device.';
+
 // `version` changes per build, so each deployment gets its own cache and the
 // previous one is deleted on activate.
-const CACHE = `hard-cache-${version}`;
+const CACHE = `train-hard-${version}`;
 
 /**
  * The icons and the manifest, which the operating system fetches itself.
@@ -38,8 +46,11 @@ const OS_FETCHED = [
 	'/manifest.webmanifest',
 	'/apple-touch-icon.png',
 	'/favicon.png',
+	'/favicon.svg',
 	'/icon-192.png',
-	'/icon-512.png'
+	'/icon-512.png',
+	'/icon-maskable-192.png',
+	'/icon-maskable-512.png'
 ].map((path) => `${base}${path}`);
 
 // `build` is the compiled JS and CSS, `files` is everything in static/. The
@@ -148,10 +159,10 @@ worker.addEventListener('fetch', (event) => {
 				// that as "FetchEvent.respondWith received an error", which
 				// names the worker rather than the problem and offers the
 				// reader nothing to do. Say what happened instead.
-				return new Response(
-					'Cannot reach the app, and no copy of this page is stored on this device.',
-					{ status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } }
-				);
+				return new Response(OFFLINE_MESSAGE, {
+					status: 503,
+					headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+				});
 			}
 		})()
 	);

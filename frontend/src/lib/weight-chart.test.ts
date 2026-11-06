@@ -4,7 +4,6 @@ import {
 	CHART_HEIGHT,
 	CHART_WIDTH,
 	PADDING,
-	shortDate,
 	sortEntries,
 	summarise
 } from './weight-chart';
@@ -165,26 +164,26 @@ describe('buildChart', () => {
 			entry('2026-01-29', 79)
 		];
 		const chart = buildChart(entries)!;
-		const labels = chart.xTicks.map((tick) => tick.label);
+		const dates = chart.xTicks.map((tick) => tick.date);
 
-		expect(labels[0]).toBe(shortDate('2026-01-01'));
-		expect(labels.at(-1)).toBe(shortDate('2026-01-29'));
-		expect(new Set(labels).size).toBe(labels.length);
+		expect(dates[0]).toBe('2026-01-01');
+		expect(dates.at(-1)).toBe('2026-01-29');
+		expect(new Set(dates).size).toBe(dates.length);
 	});
 
 	it('does not repeat a label when two entries share a date', () => {
 		const chart = buildChart([entry('2026-01-01', 80), entry('2026-01-01', 80.4)])!;
-		const labels = chart.xTicks.map((tick) => tick.label);
+		const dates = chart.xTicks.map((tick) => tick.date);
 
-		expect(new Set(labels).size).toBe(labels.length);
+		expect(dates).toEqual(['2026-01-01']);
 	});
-});
 
-describe('shortDate', () => {
-	it('reads the ISO date as a plain day, not as UTC midnight local time', () => {
-		// Parsed naively as a Date, "2026-01-01" is UTC midnight, which is the
-		// 31st of December west of Greenwich.
-		expect(shortDate('2026-01-01')).toBe('1 Jan');
+	it('hands back dates rather than formatted labels, so the axis is translatable', () => {
+		const chart = buildChart([entry('2026-01-01', 80), entry('2026-03-04', 79)])!;
+
+		for (const tick of chart.xTicks) {
+			expect(tick.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+		}
 	});
 });
 

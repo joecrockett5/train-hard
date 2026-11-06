@@ -1,4 +1,6 @@
-# Package Managers
 package-lock.json
-pnpm-lock.yaml
-yarn.lock
+build/
+.svelte-kit/
+static/*.png
+test-results/
+playwright-report/

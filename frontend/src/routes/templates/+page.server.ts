@@ -9,15 +9,11 @@ export const load = (async ({ fetch }) => {
 	]);
 
 	if (!templatesResponse.ok) {
-		throw new Error('Failed to fetch templates');
-	}
-
-	if (!tagsResponse.ok) {
-		throw new Error('Failed to fetch tags');
+		throw new Error(`Could not load templates (${templatesResponse.status})`);
 	}
 
 	return {
 		templates: await templatesResponse.json(),
-		tags: await tagsResponse.json()
+		tags: tagsResponse.ok ? await tagsResponse.json() : []
 	};
 }) satisfies PageServerLoad;

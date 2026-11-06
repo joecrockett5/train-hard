@@ -1,34 +1,47 @@
 import type { PageServerLoad } from './$types';
 
 /**
- * The weigh-ins behind the home page's summary.
+ * Everything the dashboard shows, in one load.
  *
- * A failure here degrades to a widget that says so rather than a 500 for the
- * whole page: this is the landing page, and a backend still starting up
- * should not make the app look broken. The distinction matters because the
- * widget's empty state reads "no weigh-ins yet", which would be a lie if the
+ * Each piece degrades to an empty list rather than taking the page down with
+ * it. This is the landing screen, and a backend that is still starting should
+ * not make the app look broken.
+ *
+ * The weigh-ins are the exception: they get a flag of their own, because the
+ * chart's empty state reads "no weigh-ins yet", which would be a lie if the
  * truth is that we could not ask.
  */
+async function list<T>(fetcher: typeof fetch, path: string, fallback: T): Promise<T> {
+	try {
+		const response = await fetcher(path);
+		return response.ok ? await response.json() : fallback;
+	} catch {
+		return fallback;
+	}
+}
+
 export const load = (async ({ fetch }) => {
-	// Templates fail quietly to an empty list: with none to offer, the dialog
-	// says so, which is the same thing a profile without any sees.
-	const templates = fetch('/api/templates')
-		.then((response) => (response.ok ? response.json() : []))
-		.catch(() => []);
+	const [workouts, templates, exercises, joins] = await Promise.all([
+		list(fetch, '/api/workouts', []),
+		list(fetch, '/api/templates', []),
+		list(fetch, '/api/exercises', []),
+		list(fetch, '/api/exercise-joins', [])
+	]);
+
+	let bodyWeights = [];
+	let weightsUnavailable = false;
 
 	try {
-		const response = await fetch(`/api/body-weights`);
+		const response = await fetch('/api/body-weights');
 
-		if (!response.ok) {
-			return { bodyWeights: [], weightsUnavailable: true, templates: await templates };
+		if (response.ok) {
+			bodyWeights = await response.json();
+		} else {
+			weightsUnavailable = true;
 		}
-
-		return {
-			bodyWeights: await response.json(),
-			weightsUnavailable: false,
-			templates: await templates
-		};
 	} catch {
-		return { bodyWeights: [], weightsUnavailable: true, templates: await templates };
+		weightsUnavailable = true;
 	}
+
+	return { workouts, templates, exercises, joins, bodyWeights, weightsUnavailable };
 }) satisfies PageServerLoad;

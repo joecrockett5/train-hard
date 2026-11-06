@@ -1,7 +1,7 @@
 import type { PageServerLoad } from './$types';
 
 export const load = (async ({ fetch }) => {
-	// The same two requests the weights page makes, and for the same reason:
+	// The same two requests the weight screen makes, and for the same reason:
 	// the photo rows carry no image data, so every one of them arrives in a
 	// single request and the picker needs no endpoint of its own.
 	const [response, photosResponse] = await Promise.all([
@@ -10,7 +10,7 @@ export const load = (async ({ fetch }) => {
 	]);
 
 	if (!response.ok) {
-		throw new Error('Failed to fetch body weights');
+		throw new Error(`Could not load weigh-ins (${response.status})`);
 	}
 
 	return {

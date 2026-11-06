@@ -12,6 +12,13 @@
 
 import type { BodyWeight } from '$lib/types';
 
+/*
+ * No date formatting in here. The axis labels come back as ISO days and the
+ * component formats them through $lib/i18n/format, so the arithmetic can be
+ * tested without a locale and the Japanese build gets Japanese dates for
+ * free.
+ */
+
 /**
  * The drawing surface, in viewBox units. The component scales it to the
  * available width, so these are proportions rather than pixels.
@@ -42,7 +49,12 @@ export type Chart = {
 	/** The same path closed along the bottom of the plot, for the fill. */
 	area: string;
 	yTicks: { value: number; y: number }[];
-	xTicks: { label: string; x: number }[];
+	/**
+	 * Dates to label along the bottom, as `YYYY-MM-DD`. Not formatted here:
+	 * the geometry is locale-free and the component knows which language it
+	 * is rendering in.
+	 */
+	xTicks: { date: string; x: number }[];
 	plot: { left: number; right: number; top: number; bottom: number };
 };
 
@@ -75,15 +87,6 @@ function niceStep(rough: number): number {
 
 function dayNumber(isoDate: string): number {
 	return Date.parse(`${isoDate}T00:00:00Z`) / 86_400_000;
-}
-
-/** `2026-10-17` as `17 Oct`, which is all the axis has room for. */
-export function shortDate(isoDate: string): string {
-	return new Date(`${isoDate}T00:00:00Z`).toLocaleDateString('en-GB', {
-		day: 'numeric',
-		month: 'short',
-		timeZone: 'UTC'
-	});
 }
 
 /**
@@ -165,9 +168,9 @@ export function buildChart(entries: BodyWeight[]): Chart | null {
  * Labels up to `X_TICK_TARGET` of the plotted entries, always including the
  * first and the last, and never the same date twice.
  */
-function pickXTicks(points: ChartPoint[]): { label: string; x: number }[] {
+function pickXTicks(points: ChartPoint[]): { date: string; x: number }[] {
 	const count = Math.min(X_TICK_TARGET, points.length);
-	const ticks: { label: string; x: number }[] = [];
+	const ticks: { date: string; x: number }[] = [];
 	const seen = new Set<string>();
 
 	for (let index = 0; index < count; index++) {
@@ -177,7 +180,7 @@ function pickXTicks(points: ChartPoint[]): { label: string; x: number }[] {
 			continue;
 		}
 		seen.add(point.entry.entryDate);
-		ticks.push({ label: shortDate(point.entry.entryDate), x: point.x });
+		ticks.push({ date: point.entry.entryDate, x: point.x });
 	}
 
 	return ticks;
