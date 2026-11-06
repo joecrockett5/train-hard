@@ -1,22 +1,30 @@
 import type { PageServerLoad } from './$types';
 
 /**
- * The templates offered in the create-a-workout dialog.
+ * Every workout, and the templates to start one from.
  *
- * The workouts themselves are still fetched in the browser, because they
- * change with the date the calendar is on. Templates do not, so they are read
- * once here.
+ * The old page fetched a day at a time, in the browser, on every change of
+ * the selected date -- so moving through a week was seven round trips and
+ * swiping was visibly laggy. A profile's whole workout list is a few hundred
+ * small rows, so it comes down once: the day filter and the calendar's
+ * has-something-on-it dots are then both free.
  *
- * A failure degrades to an empty list -- no templates to import from -- which
- * is the same thing the dialog shows a profile that has none, rather than a
- * 500 for a page whose job is the calendar.
+ * Templates do not change with the date, so they are read here too.
  */
 export const load = (async ({ fetch }) => {
-	try {
-		const response = await fetch('/api/templates');
-
-		return { templates: response.ok ? await response.json() : [] };
-	} catch {
-		return { templates: [] };
+	async function list<T>(path: string, fallback: T): Promise<T> {
+		try {
+			const response = await fetch(path);
+			return response.ok ? await response.json() : fallback;
+		} catch {
+			return fallback;
+		}
 	}
+
+	const [workouts, templates] = await Promise.all([
+		list('/api/workouts', []),
+		list('/api/templates', [])
+	]);
+
+	return { workouts, templates };
 }) satisfies PageServerLoad;

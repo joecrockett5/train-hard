@@ -1,196 +1,174 @@
 <script lang="ts">
-	import { page } from '$app/stores';
-	import { browser } from '$app/environment';
-	import { swipe, type SwipeCustomEvent } from 'svelte-gestures';
-	import { getLocalTimeZone, today, parseDate, type DateValue } from '@internationalized/date';
-	import { Calendar } from '$lib/components/ui/calendar/index.js';
-	import * as Card from '$lib/components/ui/card/index.js';
-	import * as Dialog from '$lib/components/ui/dialog/index.js';
-	import Input from '$lib/components/ui/input/input.svelte';
-	import { buttonVariants } from '$lib/components/ui/button';
-	import { writable } from 'svelte/store';
-	import type { WorkoutInfo } from '$lib/types';
-	import WorkoutInfoComponent from '$lib/hard-components/workout-info.svelte';
-	import NewItem from '$lib/hard-components/new-item.svelte';
-	import ImportTemplate from '$lib/hard-components/import-template.svelte';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
+	import Card from '$ui/Card.svelte';
+	import Button from '$ui/Button.svelte';
+	import Calendar from '$ui/Calendar.svelte';
+	import EmptyState from '$ui/EmptyState.svelte';
+	import WorkoutCard from '$lib/components/WorkoutCard.svelte';
+	import WorkoutDialog from '$lib/components/WorkoutDialog.svelte';
+	import { swipe } from '$lib/swipe';
 	import { importTemplate } from '$lib/templates';
-	import type { Template } from '$lib/types';
+	import { addDays, todayIso } from '$lib/dates';
+	import { weekdayDate } from '$lib/i18n/format';
+	import { t } from '$lib/i18n';
+	import type { Template, WorkoutInfo } from '$lib/types';
+	import type { PageData } from './$types';
 
-	export let data;
+	let { data }: { data: PageData } = $props();
 
-	let customDate = $page.url.searchParams.get('date');
+	let workouts = $state<WorkoutInfo[]>([]);
 
-	let workouts: WorkoutInfo[] = [];
-	let selectedDate = writable(today(getLocalTimeZone()));
-
-	if (customDate) {
-		selectedDate.set(parseDate(customDate));
-	}
-
-	const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-	const months = [
-		'January',
-		'February',
-		'March',
-		'April',
-		'May',
-		'June',
-		'July',
-		'August',
-		'September',
-		'October',
-		'November',
-		'December'
-	];
-
-	const nthNumber = (number: number) => {
-		if (number > 3 && number < 21) return 'th';
-		switch (number % 10) {
-			case 1:
-				return 'st';
-			case 2:
-				return 'nd';
-			case 3:
-				return 'rd';
-			default:
-				return 'th';
-		}
-	};
-
-	$: asDate = $selectedDate.toDate(getLocalTimeZone());
-	$: shortDate = `${months[asDate.getMonth()]} ${asDate.getDate()}${nthNumber(asDate.getDate())}, ${asDate.getFullYear()}`;
-	$: longDate = `${weekdays[asDate.getDay()]}, ${months[asDate.getMonth()]} ${asDate.getDate()}${nthNumber(asDate.getDate())} ${asDate.getFullYear()}`;
-
-	async function loadDate(date: DateValue) {
-		// The subscription below runs during SSR as well as in the browser, and
-		// this is the global fetch, which cannot resolve a relative URL on the
-		// server. Previously the Cognito sign-in gate meant this page never
-		// server-rendered, so it was never reached; now it is.
-		if (!browser) {
-			return [];
-		}
-		const response = await fetch(`/api/workouts?date=${date.toString().split('T')[0]}`);
-		if (!response.ok) {
-			console.error(`Failed to load workouts for ${date}: ${response.status}`);
-			return [];
-		}
-		const workoutsForDate = await response.json();
-		return workoutsForDate;
-	}
-
-	selectedDate.subscribe(async (date) => {
-		workouts = await loadDate(date);
-		workouts = workouts;
+	$effect(() => {
+		workouts = data.workouts;
 	});
 
-	let newWorkoutTitle = '';
-	let newWorkoutNotes = '';
-	/** Held until the workout exists, since its exercises need a workout to join to. */
-	let chosenTemplate: Template | null = null;
+	/** `?date=` deep-links a day -- deleting a workout comes back this way. */
+	let selected = $state(page.url.searchParams.get('date') ?? todayIso());
 
-	async function addWorkout() {
-		const response = await fetch(`/api/workouts`, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({
-				title: newWorkoutTitle,
-				notes: newWorkoutNotes,
-				workoutDate: $selectedDate.toString().split('T')[0]
-			})
-		});
-		if (response.ok) {
-			newWorkoutTitle = '';
-			newWorkoutNotes = '';
+	const onDate = $derived(
+		workouts
+			.filter((workout) => workout.workoutDate === selected)
+			.sort((a, b) => (a.timestamp ?? '').localeCompare(b.timestamp ?? ''))
+	);
 
-			const createdWorkout: WorkoutInfo = await response.json();
+	/** Days with something on them, so the month shows where the work was. */
+	const marked = $derived(new Set(workouts.map((workout) => workout.workoutDate)));
 
-			if (chosenTemplate) {
-				try {
-					await importTemplate(chosenTemplate.objectId ?? '', createdWorkout.objectId ?? '');
-				} catch (error) {
-					// The workout is made either way; saying so beats losing it
-					// because the template could not be read.
-					console.error('Could not import the template: ', error);
-				}
-				chosenTemplate = null;
+	let creating = $state(false);
+
+	async function started(workout: WorkoutInfo, template: Template | null) {
+		if (template) {
+			try {
+				await importTemplate(template.objectId ?? '', workout.objectId ?? '');
+			} catch (error) {
+				console.error('Could not import the template: ', error);
 			}
-
-			workouts.push(createdWorkout);
-			workouts = workouts;
 		}
-	}
 
-	let direction: string | null;
-
-	function handleSwipe(e: SwipeCustomEvent) {
-		direction = e.detail.direction;
-		switch (direction) {
-			case 'left':
-				$selectedDate = $selectedDate.add({ days: 1 });
-				break;
-			case 'right':
-				$selectedDate = $selectedDate.subtract({ days: 1 });
-				break;
-		}
+		await goto(`/workouts/${workout.objectId}`);
 	}
 </script>
 
 <svelte:head>
-	<title>hard: Workouts</title>
+	<title>{t.app.name} · {t.workouts.title}</title>
 </svelte:head>
 
-<Calendar bind:value={$selectedDate} class="rounded-md border" />
+<header class="screen-head">
+	<h1>{t.workouts.title}</h1>
+	<Button variant="primary" icon="plus" onclick={() => (creating = true)}>
+		{t.workouts.newWorkout}
+	</Button>
+</header>
 
-<Card.Root class="mt-4">
-	<Card.Header>
-		<Card.Title>{longDate}</Card.Title>
-		<Card.Description>All workouts on {shortDate}</Card.Description>
-	</Card.Header>
-</Card.Root>
+<Card>
+	<Calendar bind:value={selected} {marked} />
+</Card>
 
-<NewItem item="Workout">
-	<label for="date">Date</label>
-	<Input value={shortDate} disabled />
-	<label for="title">Title</label>
-	<Input placeholder="Title" bind:value={newWorkoutTitle} />
-	<label for="Notes">Notes</label>
-	<Input placeholder="Notes" bind:value={newWorkoutNotes} />
-
-	<ImportTemplate
-		templates={data.templates}
-		onPick={(template) => {
-			chosenTemplate = template;
-		}}
-		description="Its exercises are added once the workout is made."
-	/>
-	{#if chosenTemplate}
-		<p class="text-muted-foreground mt-2 text-sm">
-			From <span class="text-foreground font-semibold">{chosenTemplate.name}</span>
-			<button type="button" class="ml-2 underline" on:click={() => (chosenTemplate = null)}>
-				clear
-			</button>
-		</p>
-	{/if}
-	<br />
-	<Dialog.Footer>
-		<Dialog.Close class={buttonVariants({ variant: 'default' })} on:click={addWorkout}
-			>Add</Dialog.Close
-		>
-	</Dialog.Footer>
-</NewItem>
-
-<div
-	use:swipe={{ timeframe: 300, minSwipeDistance: 10, touchAction: 'pan-y' }}
-	on:swipe={handleSwipe}
-	class="h-screen"
+<!--
+	Swiping moves a day, which is how the old screen worked. The target is the
+	day's own list rather than the whole page, so a swipe over the calendar
+	still belongs to the calendar.
+-->
+<section
+	class="day"
+	use:swipe={{
+		onswipe: (direction) => (selected = addDays(selected, direction === 'left' ? 1 : -1))
+	}}
 >
-	{#if workouts.length > 0}
-		{#each workouts as workout}
-			<a href="/workouts/{workout.objectId}">
-				<WorkoutInfoComponent {workout} brief />
-			</a>
-		{/each}
+	<div class="day-head">
+		<Button
+			variant="ghost"
+			iconOnly
+			icon="chevronLeft"
+			size="sm"
+			label={t.workouts.previousDay}
+			onclick={() => (selected = addDays(selected, -1))}
+		/>
+		<h2 aria-live="polite">{weekdayDate(selected)}</h2>
+		<Button
+			variant="ghost"
+			iconOnly
+			icon="chevronRight"
+			size="sm"
+			label={t.workouts.nextDay}
+			onclick={() => (selected = addDays(selected, 1))}
+		/>
+	</div>
+
+	{#if onDate.length > 0}
+		<ul>
+			{#each onDate as workout (workout.objectId)}
+				<li><WorkoutCard {workout} dateStyle="none" /></li>
+			{/each}
+		</ul>
+	{:else}
+		<Card>
+			<EmptyState icon="dumbbell" title={t.workouts.noneOnDate}>
+				{#snippet action()}
+					<Button variant="outline" icon="plus" onclick={() => (creating = true)}>
+						{t.workouts.newWorkout}
+					</Button>
+				{/snippet}
+			</EmptyState>
+		</Card>
 	{/if}
-</div>
+
+	<p class="hint">{t.workouts.swipeHint}</p>
+</section>
+
+<WorkoutDialog bind:open={creating} date={selected} templates={data.templates} onsaved={started} />
+
+<style>
+	.screen-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-3);
+	}
+
+	h1 {
+		font-size: var(--text-xl);
+		font-weight: 700;
+		letter-spacing: -0.02em;
+	}
+
+	.day {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+		/* So a sideways drag is a swipe and a vertical one still scrolls. */
+		touch-action: pan-y;
+	}
+
+	.day-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-2);
+	}
+
+	h2 {
+		font-size: var(--text-sm);
+		font-weight: 600;
+		text-align: center;
+	}
+
+	ul {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+	}
+
+	.hint {
+		font-size: var(--text-xs);
+		text-align: center;
+		color: var(--ink-subtle);
+	}
+
+	@media (min-width: 52rem) {
+		.hint {
+			display: none;
+		}
+	}
+</style>

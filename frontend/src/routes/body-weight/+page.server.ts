@@ -5,19 +5,16 @@ export const load = (async ({ fetch }) => {
 	// They carry no image data, so this is a list of small rows -- asking per
 	// weigh-in would be one request per row on screen.
 	const [response, photosResponse] = await Promise.all([
-		fetch(`/api/body-weights`),
+		fetch('/api/body-weights'),
 		fetch('/api/progress-photos')
 	]);
 
 	if (!response.ok) {
-		throw new Error('Failed to fetch body weights');
+		throw new Error(`Could not load weigh-ins (${response.status})`);
 	}
 
-	const bodyWeights = await response.json();
-	const photos = photosResponse.ok ? await photosResponse.json() : [];
-
 	return {
-		bodyWeights,
-		photos
+		bodyWeights: await response.json(),
+		photos: photosResponse.ok ? await photosResponse.json() : []
 	};
 }) satisfies PageServerLoad;

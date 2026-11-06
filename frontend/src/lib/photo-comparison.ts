@@ -55,12 +55,12 @@ export function comparableWeighIns(
 	entries: BodyWeight[],
 	photos: ProgressPhoto[]
 ): ComparableWeighIn[] {
-	const byEntry = photos.reduce((grouped: Map<string, ProgressPhoto[]>, photo) => {
+	const byEntry = photos.reduce((grouped, photo) => {
 		const forEntry = grouped.get(photo.bodyWeightId) ?? [];
 		forEntry.push(photo);
 		grouped.set(photo.bodyWeightId, forEntry);
 		return grouped;
-	}, new Map());
+	}, new Map<string, ProgressPhoto[]>());
 
 	return sortEntries(entries)
 		.map((entry) => ({

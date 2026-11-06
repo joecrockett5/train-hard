@@ -52,11 +52,13 @@ export async function importTemplate(
 		});
 
 		if (join.ok) {
-			// Without the template's join id. The exercise is crossing from
-			// one context to the other, and in a workout that field means the
-			// exercise-join the sets hang off -- which this is not, and which
-			// the workout page is about to key its list on.
-			added.push({ ...exercise, joinId: undefined, sets: [] });
+			// Carrying the *exercise*-join's id, not the template's. In a
+			// workout that field means the join the sets hang off, which is
+			// what was just created -- and what the workout page keys its
+			// list on. The template's own join id means something else
+			// entirely and must not travel with it.
+			const created = await join.json();
+			added.push({ ...exercise, joinId: created.objectId, sets: [] });
 		} else {
 			console.error(`Could not add '${exercise.name}' from the template`);
 		}

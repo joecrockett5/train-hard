@@ -3,12 +3,13 @@ import {
 	clearProfileCookie,
 	fetchProfile,
 	THEME_COOKIE,
-	themeCookieOptions
+	themeCookieOptions,
+	themeOf
 } from '$lib/server/profile';
 import type { LayoutServerLoad } from './$types';
 
 /**
- * Resolves the active profile for the nav, and keeps the theme cookie
+ * Resolves the active profile for the shell, and keeps the theme cookie
  * honest.
  *
  * A cookie can outlive the profile it names -- most obviously after a
@@ -22,7 +23,7 @@ import type { LayoutServerLoad } from './$types';
  */
 export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 	if (!locals.profileId) {
-		return { profile: null };
+		return { profile: null, locale: locals.locale };
 	}
 
 	const lookup = await fetchProfile(locals.profileId);
@@ -34,7 +35,7 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 		if (url.pathname !== '/profiles') {
 			redirect(307, '/profiles');
 		}
-		return { profile: null };
+		return { profile: null, locale: locals.locale };
 	}
 
 	if (lookup.status === 'unavailable') {
@@ -44,7 +45,8 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 				name: locals.profileId,
 				darkMode: false,
 				weightUnit: 'kg' as const
-			}
+			},
+			locale: locals.locale
 		};
 	}
 
@@ -52,10 +54,10 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 	// whenever it has drifted -- the profile was changed from another browser,
 	// or this one was selected before the preference was known. The page being
 	// rendered right now already used the old value; the next one will not.
-	const theme = lookup.profile.darkMode ? 'dark' : 'light';
+	const theme = themeOf(lookup.profile.darkMode);
 	if (cookies.get(THEME_COOKIE) !== theme) {
 		cookies.set(THEME_COOKIE, theme, themeCookieOptions(url));
 	}
 
-	return { profile: lookup.profile };
+	return { profile: lookup.profile, locale: locals.locale };
 };

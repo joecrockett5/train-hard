@@ -1,185 +1,255 @@
 <script lang="ts">
-	import TemplateInfo from '$lib/hard-components/template-info.svelte';
-	import TemplateExercise from '$lib/hard-components/template-exercise.svelte';
-	import ExerciseInfoComponent from '$lib/hard-components/exercise-info.svelte';
-	import NewItem from '$lib/hard-components/new-item.svelte';
-	import NewExercise from '$lib/hard-components/new-exercise.svelte';
-	import TagFilter from '$lib/hard-components/tag-filter.svelte';
-	import Pager, { PAGE_SIZE } from '$lib/hard-components/pager.svelte';
-	import Input from '$lib/components/ui/input/input.svelte';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { filterByTags } from '$lib/tags';
-	import { type Exercise, type Tag, type Template } from '$lib/types';
 	import { goto } from '$app/navigation';
+	import Card from '$ui/Card.svelte';
+	import Button from '$ui/Button.svelte';
+	import EmptyState from '$ui/EmptyState.svelte';
+	import ConfirmDialog from '$ui/ConfirmDialog.svelte';
+	import ExerciseRow from '$lib/components/ExerciseRow.svelte';
+	import ExercisePicker from '$lib/components/ExercisePicker.svelte';
+	import TemplateDialog from '$lib/components/TemplateDialog.svelte';
+	import TagBadge from '$lib/components/TagBadge.svelte';
+	import { sortTags } from '$lib/tags';
+	import { t } from '$lib/i18n';
+	import type { Exercise, Tag, Template } from '$lib/types';
+	import type { PageData } from './$types';
 
-	export let data;
+	let { data }: { data: PageData } = $props();
 
-	let template: Template;
-	let exercises: Exercise[];
-	let allExercises: Exercise[];
-	let allTags: Tag[];
+	/** The same guard the workout screen needs, for the same two reasons. */
+	let shownId = $state<string | undefined>();
+	// svelte-ignore state_referenced_locally
+	let template = $state<Template>(data.template);
+	let exercises = $state<Exercise[]>([]);
+	let allExercises = $state<Exercise[]>([]);
+	let allTags = $state<Tag[]>([]);
 
-	let shownTemplateId: string | undefined;
+	$effect(() => {
+		if (data.template.objectId === shownId) {
+			return;
+		}
 
-	/**
-	 * Takes the load's data when the template changes, and only then.
-	 *
-	 * The same guard the workout page needs, for the same two reasons: moving
-	 * between templates reuses this component rather than rebuilding it, and
-	 * an unguarded reactive assignment would put the server's copy back after
-	 * every local edit -- so a removed exercise would reappear.
-	 */
-	$: if (data.template.objectId !== shownTemplateId) {
-		shownTemplateId = data.template.objectId;
+		shownId = data.template.objectId;
 		template = data.template;
 		exercises = data.exercises;
 		allExercises = data.allExercises;
 		allTags = data.tags;
-	}
+	});
 
-	let search = '';
-	let selectedTagIds: string[] = [];
-	let exercisePage = 1;
-	let pickerOpen = false;
+	let picking = $state(false);
+	let editing = $state(false);
+	let removing = $state<Exercise | null>(null);
 
-	// Every tag in use across the profile's exercises, so the picker only
-	// offers tags that could actually narrow this list.
-	$: filterableTags = [
-		...new Map(
-			allExercises
-				.flatMap((exercise: Exercise) => exercise.tags ?? [])
-				.map((tag) => [tag.objectId, tag])
-		).values()
-	];
-
-	$: possibleExercises = filterByTags(allExercises, selectedTagIds)
-		.filter(
-			(exercise: Exercise) =>
-				exercise.name.toLowerCase().includes(search.toLowerCase()) ||
-				exercise.description.toLowerCase().includes(search.toLowerCase())
-		)
-		.filter(
-			(exercise: Exercise) => !exercises.find((e: Exercise) => e.objectId === exercise.objectId)
-		)
-		.sort((a: Exercise, b: Exercise) => a.name.localeCompare(b.name));
-
-	$: viewableExercises = possibleExercises.slice(
-		(exercisePage - 1) * PAGE_SIZE,
-		exercisePage * PAGE_SIZE
-	);
+	const tags = $derived(sortTags(template.tags ?? []));
 
 	async function addExercise(exercise: Exercise) {
-		const response = await fetch('/api/template-joins', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				templateId: template.objectId,
-				exerciseId: exercise.objectId
-			})
-		});
+		try {
+			const response = await fetch('/api/template-joins', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ templateId: template.objectId, exerciseId: exercise.objectId })
+			});
 
-		if (!response.ok) {
-			console.error(`Unable to add '${exercise.name}' to the template`);
-			return;
+			if (!response.ok) {
+				throw new Error(`Backend returned ${response.status}`);
+			}
+
+			exercises = [...exercises, exercise];
+		} catch (error) {
+			console.error(`Could not add '${exercise.name}' to the template: `, error);
 		}
-
-		exercises = [...exercises, exercise];
-		// Clearing the filter widens the list again, so the page it was on
-		// no longer means anything.
-		search = '';
-		selectedTagIds = [];
-		exercisePage = 1;
 	}
 
-	/** A new exercise goes straight into this template, and into the picker's list. */
 	async function createdExercise(exercise: Exercise) {
 		allExercises = [...allExercises, exercise];
 		await addExercise(exercise);
-		pickerOpen = false;
 	}
 
 	async function removeExercise(exercise: Exercise) {
-		const response = await fetch(
-			`/api/template-joins?templateId=${template.objectId}&exerciseId=${exercise.objectId}`,
-			{ method: 'DELETE' }
-		);
+		try {
+			const response = await fetch(
+				`/api/template-joins?templateId=${template.objectId}&exerciseId=${exercise.objectId}`,
+				{ method: 'DELETE' }
+			);
 
-		if (!response.ok) {
-			console.error(`Unable to remove '${exercise.name}' from the template`);
-			return;
+			if (!response.ok) {
+				throw new Error(`Backend returned ${response.status}`);
+			}
+
+			exercises = exercises.filter((each) => each.objectId !== exercise.objectId);
+		} catch (error) {
+			console.error(`Could not remove '${exercise.name}': `, error);
 		}
-
-		exercises = exercises.filter((e: Exercise) => e.objectId !== exercise.objectId);
 	}
 
 	async function deleteTemplate(toDelete: Template) {
-		const response = await fetch(`/api/templates/${toDelete.objectId}`, { method: 'DELETE' });
+		try {
+			const response = await fetch(`/api/templates/${toDelete.objectId}`, { method: 'DELETE' });
 
-		if (!response.ok) {
-			console.error('Failed to delete template: ', toDelete);
-			return;
+			if (!response.ok) {
+				throw new Error(`Backend returned ${response.status}`);
+			}
+
+			await goto('/templates');
+		} catch (error) {
+			console.error('Could not delete the template: ', error);
 		}
-
-		await goto('/templates');
 	}
 </script>
 
 <svelte:head>
-	<title>hard: {template.name}</title>
+	<title>{t.app.name} · {template.name}</title>
 </svelte:head>
 
-<TemplateInfo
-	{template}
-	bind:allTags
-	deletionCallback={deleteTemplate}
-	exerciseCount={exercises.length}
-/>
+<header class="screen-head">
+	<Button variant="ghost" size="sm" icon="arrowLeft" href="/templates" class="back">
+		{t.templates.title}
+	</Button>
 
-<NewItem
-	item="Exercise"
-	description={`Add an exercise to “${template.name}”`}
-	bind:open={pickerOpen}
->
-	<div>
-		<label for="Search" class="text-left"><b>Search</b></label>
-		<!--
-			Either control narrows the list, so both send it back to a page
-			that still exists -- from the event rather than from a `$:` block
-			watching them. Svelte invalidates a reactive statement's
-			dependencies whenever anything else writes a variable that
-			statement assigns, so a block doing `exercisePage = 1` re-ran on
-			every write the pager's `bind:page` made, and each click on page 2
-			went straight back to page 1.
-		-->
-		<Input
-			placeholder="Name or description"
-			bind:value={search}
-			on:input={() => (exercisePage = 1)}
-		/>
-		<TagFilter
-			tags={filterableTags}
-			bind:selected={selectedTagIds}
-			on:change={() => (exercisePage = 1)}
-		/>
-		<NewExercise bind:allTags onCreated={createdExercise} label="New Exercise" />
+	<div class="titles">
+		<h1>{template.name}</h1>
+		<p>{t.templates.exerciseCount(exercises.length)}</p>
 	</div>
-	<Pager count={possibleExercises.length} bind:page={exercisePage} />
 
-	{#each viewableExercises as possibleExercise}
-		<Dialog.Close class="w-full text-left" on:click={() => addExercise(possibleExercise)}>
-			<ExerciseInfoComponent exercise={possibleExercise} brief />
-		</Dialog.Close>
-	{/each}
-</NewItem>
+	{#if tags.length > 0}
+		<div class="tags">
+			{#each tags as tag (tag.objectId)}
+				<TagBadge {tag} />
+			{/each}
+		</div>
+	{/if}
 
-{#each exercises as exercise (exercise.objectId)}
-	<TemplateExercise {exercise} removalCallback={removeExercise} />
-{/each}
+	{#if template.description}
+		<Card><p class="notes">{template.description}</p></Card>
+	{/if}
 
-{#if exercises.length === 0}
-	<p class="text-muted-foreground mt-8 text-center text-sm">
-		No exercises yet. Add the ones this template should pull in.
-	</p>
+	<Button variant="secondary" size="sm" icon="pencil" class="edit" onclick={() => (editing = true)}>
+		{t.common.edit}
+	</Button>
+</header>
+
+<Button variant="primary" icon="plus" full onclick={() => (picking = true)}>
+	{t.workouts.addExercise}
+</Button>
+
+{#if exercises.length > 0}
+	<ul>
+		{#each exercises as exercise (exercise.objectId)}
+			<li>
+				<div class="entry">
+					<ExerciseRow {exercise} />
+					<Button
+						variant="ghost"
+						size="sm"
+						iconOnly
+						icon="close"
+						label={t.common.remove}
+						onclick={() => (removing = exercise)}
+					/>
+				</div>
+			</li>
+		{/each}
+	</ul>
+{:else}
+	<Card>
+		<EmptyState icon="list" title={t.templates.empty}>
+			{#snippet action()}
+				<Button variant="outline" icon="plus" onclick={() => (picking = true)}>
+					{t.workouts.addExercise}
+				</Button>
+			{/snippet}
+		</EmptyState>
+	</Card>
 {/if}
 
-<div class="mb-8" />
+<ExercisePicker
+	bind:open={picking}
+	bind:allTags
+	title={t.workouts.addExercise}
+	description={t.templates.addExerciseTo(template.name)}
+	{allExercises}
+	present={exercises}
+	onpick={addExercise}
+	oncreate={createdExercise}
+/>
+
+<TemplateDialog
+	bind:open={editing}
+	{template}
+	bind:allTags
+	onsaved={(saved) => {
+		template = saved;
+	}}
+	ondelete={deleteTemplate}
+/>
+
+{#if removing}
+	<ConfirmDialog
+		open={true}
+		title={t.confirm.removeFromTemplate(removing.name)}
+		body={t.confirm.removeFromTemplateBody}
+		confirmLabel={t.common.remove}
+		onconfirm={async () => {
+			const exercise = removing;
+			removing = null;
+			if (exercise) {
+				await removeExercise(exercise);
+			}
+		}}
+	/>
+{/if}
+
+<style>
+	.screen-head {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+	}
+
+	.screen-head :global(.back) {
+		align-self: flex-start;
+		margin-left: calc(-1 * var(--space-3));
+	}
+
+	.screen-head :global(.edit) {
+		align-self: flex-start;
+	}
+
+	h1 {
+		font-size: var(--text-xl);
+		font-weight: 700;
+		letter-spacing: -0.02em;
+	}
+
+	.titles p {
+		font-size: var(--text-sm);
+		color: var(--ink-subtle);
+	}
+
+	.tags {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-2);
+	}
+
+	.notes {
+		font-size: var(--text-sm);
+		color: var(--ink-muted);
+	}
+
+	ul {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+	}
+
+	.entry {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+	}
+
+	.entry :global(.card) {
+		flex: 1;
+		min-width: 0;
+	}
+</style>

@@ -2,7 +2,7 @@
  * Tag colours.
  *
  * A tag stores one colour. The badge derives its background, border and text
- * from that single value with `color-mix` (see `.tag-badge` in app.css), so
+ * from that single value with `color-mix` (see TagBadge.svelte), so
  * there is nothing to keep in step and the same tag reads correctly in both
  * themes.
  *
@@ -16,21 +16,30 @@ import type { Tag } from '$lib/types';
 /**
  * The colours a new tag is given, in order of preference.
  *
- * Tailwind's 600 weights, which are the ones that hold up as text on both a
- * white and a near-black background. Hues are spaced around the wheel so
- * that two tags created in a row are easy to tell apart.
+ * Ten mid-tones that pass, in both themes against both card surfaces, the
+ * lightness band, the chroma floor, protan and deutan separation on every
+ * adjacent pair, the normal-vision floor and 3:1 contrast. That is what lets
+ * a tag go on storing one hex and still read on white and on near-black.
+ *
+ * The list deliberately contains no orange and no red: a tag must never be
+ * mistakable for the brand ramp or for a delete. It is ordered for
+ * consecutive distinctness, because this order is also the assignment order
+ * -- the first two tags a profile makes should not be two neighbouring blues.
+ *
+ * Tags created before this list keep whatever they were stored with. Nothing
+ * is rewritten; this only governs what the next tag is given.
  */
 export const TAG_COLOURS = [
-	'#e11d48', // rose
-	'#0284c7', // sky
-	'#16a34a', // green
-	'#d97706', // amber
-	'#7c3aed', // violet
-	'#0d9488', // teal
-	'#db2777', // pink
-	'#65a30d', // lime
-	'#4f46e5', // indigo
-	'#ea580c' // orange
+	'#d6336c', // raspberry
+	'#1c7ed6', // blue
+	'#2f9e44', // green
+	'#ae3ec9', // grape
+	'#0ca678', // teal
+	'#7048e8', // violet
+	'#b07a00', // bronze
+	'#0b8ca8', // cyan
+	'#4263eb', // indigo
+	'#6b9b10' // olive
 ] as const;
 
 /**

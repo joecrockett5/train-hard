@@ -1,83 +1,120 @@
 <script lang="ts">
-	import * as Card from '$lib/components/ui/card';
-	import TemplateInfo from '$lib/hard-components/template-info.svelte';
-	import NewTemplate from '$lib/hard-components/new-template.svelte';
-	import Pager, { PAGE_SIZE } from '$lib/hard-components/pager.svelte';
-	import TagFilter from '$lib/hard-components/tag-filter.svelte';
+	import Card from '$ui/Card.svelte';
+	import Button from '$ui/Button.svelte';
+	import Pager from '$ui/Pager.svelte';
+	import EmptyState from '$ui/EmptyState.svelte';
+	import { pageOf } from '$ui/paging';
+	import TemplateCard from '$lib/components/TemplateCard.svelte';
+	import TemplateDialog from '$lib/components/TemplateDialog.svelte';
+	import TagFilter from '$lib/components/TagFilter.svelte';
 	import { filterByTags } from '$lib/tags';
-	import { type Tag, type Template } from '$lib/types';
+	import { t } from '$lib/i18n';
+	import type { Tag, Template } from '$lib/types';
+	import type { PageData } from './$types';
 
-	export let data;
+	let { data }: { data: PageData } = $props();
 
-	let page = 1;
+	let templates = $state<Template[]>([]);
+	let allTags = $state<Tag[]>([]);
 
-	// Newest first, as the exercises page does it: the one you just made is
-	// the one you are looking for.
-	let templates: Template[] = data.templates.sort(
-		(a: Template, b: Template) =>
-			new Date(b.timestamp ?? 0).getTime() - new Date(a.timestamp ?? 0).getTime()
-	);
-	let allTags: Tag[] = data.tags;
-	let selectedTagIds: string[] = [];
+	$effect(() => {
+		// Newest first, as the exercises screen does it.
+		templates = data.templates
+			.slice()
+			.sort((a: Template, b: Template) => (b.timestamp ?? '').localeCompare(a.timestamp ?? ''));
+	});
 
-	$: matching = filterByTags(templates, selectedTagIds);
+	$effect(() => {
+		allTags = data.tags;
+	});
 
-	$: viewableTemplates = matching.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+	let selectedTagIds = $state<string[]>([]);
+	let page = $state(1);
+	let creating = $state(false);
+
+	const matching = $derived(filterByTags(templates, selectedTagIds));
+	const visible = $derived(pageOf(matching, page));
 </script>
 
 <svelte:head>
-	<title>hard: Templates</title>
+	<title>{t.app.name} · {t.templates.title}</title>
 </svelte:head>
 
-<Card.Root class="mt-4">
-	<Card.Header>
-		<Card.Title>Templates</Card.Title>
-		<Card.Description>
-			{#if selectedTagIds.length > 0}
-				{matching.length} of {templates.length} templates
-			{:else}
-				Start a workout from a list you have already made
-			{/if}
-		</Card.Description>
-	</Card.Header>
-	<Card.Content class="pt-0">
-		<!--
-			The page is reset here, on the event, rather than in a `$:` block
-			watching the filter. Svelte invalidates a reactive statement's
-			dependencies whenever anything else writes a variable that
-			statement assigns, so a block doing `page = 1` re-ran on every
-			write the pager's `bind:page` made, and sent each click on page 2
-			straight back to page 1.
-		-->
-		<TagFilter tags={allTags} bind:selected={selectedTagIds} on:change={() => (page = 1)} />
-	</Card.Content>
-</Card.Root>
+<header class="screen-head">
+	<div>
+		<h1>{t.templates.title}</h1>
+		<p>
+			{selectedTagIds.length > 0
+				? t.templates.matching(matching.length, templates.length)
+				: t.templates.subtitle}
+		</p>
+	</div>
+	<Button variant="primary" icon="plus" onclick={() => (creating = true)}>
+		{t.templates.newTemplate}
+	</Button>
+</header>
 
-<NewTemplate
+{#if allTags.length > 0}
+	<Card>
+		<TagFilter tags={allTags} bind:selected={selectedTagIds} onchange={() => (page = 1)} />
+	</Card>
+{/if}
+
+{#if matching.length > 0}
+	<ul>
+		{#each visible as template (template.objectId)}
+			<li><TemplateCard {template} /></li>
+		{/each}
+	</ul>
+	<Pager count={matching.length} bind:page />
+{:else}
+	<Card>
+		<EmptyState
+			icon="bookmark"
+			title={selectedTagIds.length > 0 ? t.templates.none : t.templates.noneAtAll}
+		>
+			{#snippet action()}
+				<Button variant="outline" icon="plus" onclick={() => (creating = true)}>
+					{t.templates.newTemplate}
+				</Button>
+			{/snippet}
+		</EmptyState>
+	</Card>
+{/if}
+
+<TemplateDialog
+	bind:open={creating}
 	bind:allTags
-	onCreated={(template) => {
+	onsaved={(template) => {
 		// The create response carries no count, and a template made here has
-		// no exercises yet -- without this the new card reads differently
-		// from the same card after a reload.
-		templates = [{ ...template, exerciseCount: 0 }, ...templates];
+		// none yet -- without this the new card reads differently from the
+		// same card after a reload.
+		templates = [{ ...template, exerciseCount: template.exerciseCount ?? 0 }, ...templates];
 	}}
 />
 
-<Pager count={matching.length} bind:page />
+<style>
+	.screen-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-3);
+	}
 
-{#each viewableTemplates as template (template.objectId)}
-	<TemplateInfo
-		{template}
-		brief
-		href={`/templates/${template.objectId}`}
-		exerciseCount={template.exerciseCount}
-	/>
-{/each}
+	h1 {
+		font-size: var(--text-xl);
+		font-weight: 700;
+		letter-spacing: -0.02em;
+	}
 
-{#if matching.length === 0}
-	<p class="text-muted-foreground mt-8 text-center text-sm">No templates match.</p>
-{/if}
+	.screen-head p {
+		font-size: var(--text-sm);
+		color: var(--ink-subtle);
+	}
 
-<div class="mb-8" />
-
-<Pager count={matching.length} bind:page />
+	ul {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+	}
+</style>

@@ -1,177 +1,331 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import * as Card from '$lib/components/ui/card';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Button, buttonVariants } from '$lib/components/ui/button';
-	import Input from '$lib/components/ui/input/input.svelte';
-	import Plus from 'lucide-svelte/icons/plus';
-	import WeightChart from '$lib/hard-components/weight-chart.svelte';
-	import { todayIso } from '$lib/dates';
-	import ImportTemplate from '$lib/hard-components/import-template.svelte';
+	import Card from '$ui/Card.svelte';
+	import Button from '$ui/Button.svelte';
+	import EmptyState from '$ui/EmptyState.svelte';
+	import WorkoutCard from '$lib/components/WorkoutCard.svelte';
+	import WorkoutDialog from '$lib/components/WorkoutDialog.svelte';
+	import WeighInDialog from '$lib/components/WeighInDialog.svelte';
+	import WeightChart from '$lib/components/WeightChart.svelte';
+	import { frequentExercises, isFirstRun, summariseWorkouts } from '$lib/dashboard';
 	import { importTemplate } from '$lib/templates';
-	import type { Template, WorkoutInfo } from '$lib/types';
+	import { summarise } from '$lib/weight-chart';
+	import { formatWeight, toDisplayWeight } from '$lib/units';
+	import { preferences } from '$lib/preferences.svelte';
+	import { todayIso } from '$lib/dates';
+	import { longDate, relativeDay, timestampDay } from '$lib/i18n/format';
+	import { t } from '$lib/i18n';
+	import type { BodyWeight, Template, WorkoutInfo } from '$lib/types';
+	import type { PageData } from './$types';
 
-	export let data;
+	let { data }: { data: PageData } = $props();
 
-	let open = false;
-	let creating = false;
-	let failed = false;
-	let newTitle = '';
-	let newNotes = '';
-
+	const prefs = preferences();
 	const today = todayIso();
-	$: formattedDate = new Date(`${today}T00:00:00Z`).toLocaleDateString('en-GB', {
-		day: 'numeric',
-		month: 'long',
-		year: 'numeric',
-		timeZone: 'UTC'
+
+	let workouts = $state<WorkoutInfo[]>([]);
+	let weighIns = $state<BodyWeight[]>([]);
+
+	// Taken from the server on load and on every navigation back here, so a
+	// workout started elsewhere shows up without a reload.
+	$effect(() => {
+		workouts = data.workouts;
+	});
+	$effect(() => {
+		weighIns = data.bodyWeights;
 	});
 
-	/**
-	 * Starts a workout dated today and opens it.
-	 *
-	 * The dialog is closed here rather than by a `Dialog.Close` on the button,
-	 * so that a failure leaves it open with what was typed still in it --
-	 * closing first would lose the title and give no sign anything went wrong.
-	 * Nothing stops a second workout on the same day, which the workouts page
-	 * already allows.
-	 */
-	/** Held until the workout exists, since its exercises need a workout to join to. */
-	let chosenTemplate: Template | null = null;
+	const summary = $derived(summariseWorkouts(workouts, today));
+	const frequent = $derived(frequentExercises(data.exercises, data.joins));
+	const weight = $derived(
+		summarise(
+			weighIns.map((entry) => ({
+				...entry,
+				weight: toDisplayWeight(entry.weight, prefs.weightUnit)
+			}))
+		)
+	);
+	const firstRun = $derived(
+		isFirstRun({
+			workouts: workouts.length,
+			exercises: data.exercises.length,
+			weighIns: weighIns.length
+		})
+	);
 
-	async function addWorkout() {
-		if (creating || !newTitle.trim()) {
-			return;
-		}
-		creating = true;
-		failed = false;
+	let startingWorkout = $state(false);
+	let loggingWeight = $state(false);
 
-		try {
-			const response = await fetch('/api/workouts', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					title: newTitle.trim(),
-					notes: newNotes.trim(),
-					workoutDate: today
-				})
-			});
-
-			if (!response.ok) {
-				throw new Error(`Backend returned ${response.status}`);
+	/** Starts the workout, pulls in a template if one was picked, and opens it. */
+	async function started(workout: WorkoutInfo, template: Template | null) {
+		if (template) {
+			try {
+				await importTemplate(template.objectId ?? '', workout.objectId ?? '');
+			} catch (error) {
+				// The workout started either way, which is what the button
+				// promised; landing on it beats refusing over the import.
+				console.error('Could not import the template: ', error);
 			}
-
-			const created: WorkoutInfo = await response.json();
-
-			if (chosenTemplate) {
-				try {
-					await importTemplate(chosenTemplate.objectId ?? '', created.objectId ?? '');
-				} catch (templateError) {
-					// The workout started either way, which is what the button
-					// promised; landing on it beats refusing over the import.
-					console.error('Could not import the template: ', templateError);
-				}
-				chosenTemplate = null;
-			}
-
-			open = false;
-			newTitle = '';
-			newNotes = '';
-			await goto(`/workouts/${created.objectId}`);
-		} catch (error) {
-			console.error("Failed to start today's workout: ", error);
-			failed = true;
-		} finally {
-			creating = false;
 		}
+
+		await goto(`/workouts/${workout.objectId}`);
+	}
+
+	function weighed(entry: BodyWeight) {
+		weighIns = [...weighIns, entry];
 	}
 </script>
 
 <svelte:head>
-	<title>hard: Home</title>
+	<title>{t.app.name}</title>
 </svelte:head>
 
-<img src="/hard-logo.png" alt="Hard Logo" class="mx-auto mt-6 mb-4 h-32 w-32 rounded-xl" />
+<header class="screen-head">
+	<div>
+		<p class="eyebrow">{longDate(today)}</p>
+		<h1>{t.dashboard.greeting(prefs.name)}</h1>
+	</div>
+</header>
 
-{#if data.profile}
-	<Card.Root>
-		<Card.Header class="py-4">
-			<Card.Title class="text-center text-lg">{data.profile.name}</Card.Title>
-		</Card.Header>
-	</Card.Root>
-{/if}
-
-<Dialog.Root bind:open>
-	<!--
-		The same treatment as the "New Workout" and "New Exercise" triggers
-		that `NewItem` renders: `outline` sits at the page background with a
-		border and lifts to the accent on hover, rather than the default
-		variant, which inverts and is only ever a small confirm button inside
-		a dialog here. Taller and at text-base because this one is the point
-		of the screen; the colours are NewItem's.
-	-->
-	<Dialog.Trigger
-		class={buttonVariants({ variant: 'outline' }) + ' mt-4 h-16 w-full text-base text-gray-400'}
-	>
-		<Plus class="mr-2 h-5 w-5" />
-		Start today's workout
-	</Dialog.Trigger>
-	<Dialog.Content>
-		<Dialog.Header>
-			<Dialog.Title>New Workout</Dialog.Title>
-			<Dialog.Description>{formattedDate}</Dialog.Description>
-		</Dialog.Header>
-		<label for="title">Title</label>
-		<Input
-			placeholder="Title"
-			bind:value={newTitle}
-			on:keydown={(event) => event.key === 'Enter' && addWorkout()}
-		/>
-		<label for="notes">Notes</label>
-		<Input placeholder="Notes" bind:value={newNotes} />
-
-		<ImportTemplate
-			templates={data.templates}
-			onPick={(template) => {
-				chosenTemplate = template;
-			}}
-			description="Its exercises are added once the workout is made."
-		/>
-		{#if chosenTemplate}
-			<p class="text-muted-foreground mt-2 text-sm">
-				From <span class="text-foreground font-semibold">{chosenTemplate.name}</span>
-				<button type="button" class="ml-2 underline" on:click={() => (chosenTemplate = null)}>
-					clear
-				</button>
-			</p>
-		{/if}
-		{#if failed}
-			<p class="text-destructive text-sm">Could not start the workout. Try again.</p>
-		{/if}
-		<br />
-		<Dialog.Footer>
-			<Button on:click={addWorkout} disabled={!newTitle.trim() || creating}>
-				{creating ? 'Starting…' : 'Start'}
-			</Button>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
-
-{#if data.weightsUnavailable}
-	<Card.Root class="mt-4">
-		<Card.Header>
-			<Card.Title>Progress</Card.Title>
-			<Card.Description>Could not load your weigh-ins just now.</Card.Description>
-		</Card.Header>
-	</Card.Root>
+{#if firstRun}
+	<Card>
+		<EmptyState icon="flame" title={t.dashboard.firstRun} body={t.dashboard.firstRunBody}>
+			{#snippet action()}
+				<Button variant="primary" icon="plus" onclick={() => (startingWorkout = true)}>
+					{t.dashboard.startWorkout}
+				</Button>
+			{/snippet}
+		</EmptyState>
+	</Card>
 {:else}
-	<!--
-		The whole card is the link, rather than a button inside it: on a phone
-		the card is the target you actually aim at.
-	-->
-	<a href="/body-weight" class="block rounded-lg">
-		<WeightChart entries={data.bodyWeights} />
-	</a>
+	<!-- The point of the screen, so it is the one primary action on it. -->
+	<Button variant="primary" size="lg" icon="plus" full onclick={() => (startingWorkout = true)}>
+		{t.dashboard.startWorkout}
+	</Button>
+
+	{#if summary.today.length > 0}
+		<section>
+			<h2>{t.dashboard.todaysWorkouts}</h2>
+			<ul>
+				{#each summary.today as workout (workout.objectId)}
+					<li><WorkoutCard {workout} dateStyle="none" /></li>
+				{/each}
+			</ul>
+		</section>
+	{/if}
+
+	<div class="stats">
+		<Card>
+			<p class="stat-label">{t.dashboard.thisWeek}</p>
+			<p class="stat tnum">{summary.thisWeek}</p>
+			<p class="stat-note">
+				{summary.thisWeek === 0
+					? t.dashboard.streakNone
+					: t.dashboard.thisWeekWorkouts(summary.thisWeek)}
+			</p>
+		</Card>
+
+		<Card>
+			<p class="stat-label">{t.dashboard.latestWeight}</p>
+			{#if weight}
+				<p class="stat tnum">{formatWeight(weight.current)}<small>{prefs.weightUnit}</small></p>
+				<p class="stat-note">{relativeDay(weight.latest.entryDate)}</p>
+			{:else}
+				<p class="stat muted">—</p>
+				<button type="button" class="stat-action" onclick={() => (loggingWeight = true)}>
+					{t.dashboard.addWeighIn}
+				</button>
+			{/if}
+		</Card>
+	</div>
+
+	<Card>
+		{#if data.weightsUnavailable}
+			<EmptyState icon="alert" tone="error" title={t.dashboard.progressUnavailable} />
+		{:else}
+			<a href="/body-weight" class="chart-link" aria-label={t.bodyWeight.title}>
+				<WeightChart entries={weighIns} compact />
+			</a>
+		{/if}
+	</Card>
+
+	<section>
+		<div class="section-head">
+			<h2>{t.dashboard.recentWorkouts}</h2>
+			<Button variant="ghost" size="sm" href="/workouts" iconEnd="chevronRight">
+				{t.dashboard.seeAllWorkouts}
+			</Button>
+		</div>
+		{#if summary.recent.length > 0}
+			<ul>
+				{#each summary.recent as workout (workout.objectId)}
+					<li><WorkoutCard {workout} /></li>
+				{/each}
+			</ul>
+		{:else}
+			<Card><EmptyState icon="dumbbell" title={t.dashboard.recentWorkoutsEmpty} /></Card>
+		{/if}
+	</section>
+
+	{#if frequent.length > 0}
+		<section>
+			<h2>{t.dashboard.frequentExercises}</h2>
+			<Card padded={false}>
+				<ul class="frequent">
+					{#each frequent as entry (entry.exercise.objectId)}
+						<li>
+							<span class="name">{entry.exercise.name}</span>
+							<span class="count">
+								{t.dashboard.frequentExerciseSessions(entry.sessions)}
+								{#if entry.lastDone}
+									<span class="when">· {timestampDay(entry.lastDone)}</span>
+								{/if}
+							</span>
+						</li>
+					{/each}
+				</ul>
+			</Card>
+		</section>
+	{/if}
 {/if}
 
-<div class="mb-8" />
+<WorkoutDialog
+	bind:open={startingWorkout}
+	date={today}
+	templates={data.templates}
+	onsaved={started}
+/>
+
+<WeighInDialog bind:open={loggingWeight} onsaved={weighed} />
+
+<style>
+	.screen-head {
+		display: flex;
+		align-items: flex-end;
+		justify-content: space-between;
+		gap: var(--space-3);
+	}
+
+	.eyebrow {
+		font-size: var(--text-xs);
+		font-weight: 600;
+		letter-spacing: 0.04em;
+		color: var(--ink-subtle);
+	}
+
+	h1 {
+		font-size: var(--text-2xl);
+		font-weight: 700;
+		letter-spacing: -0.02em;
+	}
+
+	section {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+	}
+
+	h2 {
+		font-size: var(--text-xs);
+		font-weight: 700;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--ink-subtle);
+	}
+
+	.section-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-2);
+	}
+
+	ul {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+	}
+
+	.stats {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: var(--space-3);
+	}
+
+	.stat-label {
+		font-size: var(--text-xs);
+		font-weight: 600;
+		color: var(--ink-subtle);
+	}
+
+	.stat {
+		font-size: var(--text-2xl);
+		font-weight: 700;
+		line-height: var(--leading-tight);
+		letter-spacing: -0.02em;
+	}
+
+	.stat small {
+		font-size: var(--text-base);
+		font-weight: 600;
+		color: var(--ink-muted);
+	}
+
+	.stat.muted {
+		color: var(--ink-subtle);
+	}
+
+	.stat-note {
+		font-size: var(--text-xs);
+		color: var(--ink-subtle);
+	}
+
+	.stat-action {
+		min-height: var(--touch);
+		font-size: var(--text-xs);
+		font-weight: 600;
+		color: var(--brand);
+		text-align: left;
+	}
+
+	.chart-link {
+		display: block;
+	}
+
+	.frequent li {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-3);
+		min-height: var(--touch);
+		padding: var(--space-2) var(--space-4);
+	}
+
+	.frequent li + li {
+		border-top: 1px solid var(--line);
+	}
+
+	.frequent .name {
+		font-size: var(--text-sm);
+		font-weight: 600;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.frequent .count {
+		flex: none;
+		font-size: var(--text-xs);
+		color: var(--ink-subtle);
+	}
+
+	.frequent .when {
+		color: var(--ink-subtle);
+	}
+
+	@media (min-width: 52rem) {
+		.stats {
+			grid-template-columns: repeat(4, 1fr);
+		}
+	}
+</style>

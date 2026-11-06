@@ -1,0 +1,142 @@
+/**
+ * The reset, the element defaults, and the few things that are genuinely
+ * global: focus, scrollbars, reduced motion.
+ *
+ * Everything else is scoped to the component that needs it. There is no
+ * utility layer in this app.
+ */
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+* {
+	margin: 0;
+	padding: 0;
+}
+
+html {
+	-webkit-text-size-adjust: 100%;
+	/* So a sheet opening cannot make the page jump by a scrollbar's width. */
+	scrollbar-gutter: stable;
+}
+
+body {
+	min-height: 100svh;
+	background: var(--surface);
+	color: var(--ink);
+	font-family: var(--font-sans);
+	font-size: var(--text-base);
+	line-height: var(--leading-normal);
+	-webkit-font-smoothing: antialiased;
+	text-rendering: optimizeLegibility;
+	/* The tab bar is fixed; this keeps the last card clear of it. */
+	overscroll-behavior-y: none;
+}
+
+h1,
+h2,
+h3,
+h4 {
+	font-weight: 600;
+	line-height: var(--leading-tight);
+	letter-spacing: -0.012em;
+}
+
+h1 {
+	font-size: var(--text-xl);
+}
+
+h2 {
+	font-size: var(--text-lg);
+}
+
+h3 {
+	font-size: var(--text-base);
+}
+
+a {
+	color: inherit;
+	text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+	font: inherit;
+	color: inherit;
+}
+
+button {
+	background: none;
+	border: none;
+	cursor: pointer;
+	/* iOS otherwise flashes a grey box over anything tappable. */
+	-webkit-tap-highlight-color: transparent;
+}
+
+ul,
+ol {
+	list-style: none;
+}
+
+img,
+svg {
+	display: block;
+	max-width: 100%;
+}
+
+/*
+ * Figures line up. A column of sets where 5x82.5 sits under 12x60 jitters
+ * with proportional digits, and the chart's axis labels wander.
+ */
+.tnum,
+input[type='number'],
+time {
+	font-variant-numeric: tabular-nums;
+}
+
+/*
+ * One focus treatment, everywhere, on :focus-visible only -- so it follows
+ * the keyboard and never flashes under a thumb.
+ */
+:focus-visible {
+	outline: 2px solid var(--brand);
+	outline-offset: 2px;
+	border-radius: var(--radius-sm);
+}
+
+::selection {
+	background: var(--brand-wash);
+}
+
+/* Visually hidden, still read aloud and still focusable. */
+.sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+	border: 0;
+}
+
+/*
+ * Reduced motion removes the movement, not the thing that moved: a sheet
+ * still appears, it just stops sliding up the screen.
+ */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
+	}
+}
