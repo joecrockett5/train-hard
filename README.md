@@ -5,11 +5,19 @@ storage — all running locally in Docker. No AWS account needed.
 
 ```
 backend/        FastAPI app (Python 3.11)
-frontend/       SvelteKit app (adapter-node)
+frontend/       SvelteKit app (Svelte 5, adapter-node)
+docs/           Brand, the audit the UI was rebuilt against, screenshots
 scripts/        Table creation and seeding
 seed-data/      Drop JSON dumps here (gitignored)
 infra-legacy/   The old AWS deployment config, kept for reference
 ```
+
+The interface is built from CSS custom-property design tokens and
+hand-written components -- no component library, no utility CSS framework, no
+icon, gesture or date packages. [docs/branding.md](docs/branding.md) has the
+palette, the type and the logo;
+[docs/frontend-audit.md](docs/frontend-audit.md) is the reading of the
+previous UI that the current one was built to match.
 
 ## Branches
 
@@ -18,10 +26,17 @@ infra-legacy/   The old AWS deployment config, kept for reference
 | `main` | English |
 | `japanese` | Japanese (日本語) |
 
-They are identical apart from the interface strings and date formatting.
 `japanese` is the original UI the app was written with, preserved so it can be
-picked up again; `main` is the English translation of it. Any change that is
-not a user-facing string should land on both.
+picked up again; `main` is the English translation of it.
+
+They are two branches because the strings were written into the markup, so
+translating meant forking the app and every other change then had to land
+twice. `main` no longer works that way: every user-facing string and every
+date format lives in [`frontend/src/lib/i18n`](frontend/src/lib/i18n), and the
+language is chosen by `UI_LOCALE` at run time. Adding `ja.ts` there and
+registering it retires the branch -- one image, two languages, no divergence
+to manage. Until someone does that, `japanese` is still a branch and still
+builds its own images; see **CI/CD**.
 
 ## Prerequisites
 
@@ -55,16 +70,51 @@ which data you see — workouts, exercises and sets are partitioned per profile.
 
 Visiting any page without a profile selected redirects to `/profiles`, where
 you can pick an existing one or create a new one. The choice is stored in a
-`profileId` cookie; the nav sheet (the **+** button, bottom right) has a
-switch-profile option.
+`profileId` cookie. To switch, or to rename the one you are on, tap the avatar
+in the top-right corner -- on a wide screen it is at the foot of the side
+rail. See **Settings**.
 
 This replaces the Cognito user pool the AWS version used. See
 [infra-legacy/README.md](infra-legacy/README.md) for what was removed.
 
+## The dashboard
+
+`/` is the landing screen, and the one place the app volunteers anything.
+Under the date and the profile's name:
+
+- **Start today's workout** -- the only primary action on the screen. It
+  opens a sheet for the title, the notes and an optional template, makes the
+  workout dated today, and takes you into it.
+- **Today**, if anything is already logged on it, so a session is resumed
+  rather than started twice.
+- **This week** and **Latest weight** -- a count of the last seven days, and
+  the most recent reading with how long ago it was.
+- **Progress** -- the weight graph, linking through to `/body-weight`.
+- **Recent workouts**, and the **exercises logged most often**, each with the
+  day it was last done.
+
+All of it comes from endpoints that already existed; nothing was added to the
+backend for it. A profile with nothing in it gets one card saying where to
+start, rather than six empty sections.
+
+## Settings
+
+The avatar in the top-right -- or at the foot of the side rail on a wide
+screen -- opens `/settings`, which is the only place any preference is
+changed. In order: the profile's name, switching profile and creating one;
+the theme; the weight unit; and what the profile currently holds.
+
+Everything saves as it is changed and says so, except the name, which has a
+button -- saving on every keystroke would write a profile called "J", then
+"Jo", then "Joe".
+
+Both preferences are stored on the profile, as they always were, so existing
+data needs nothing done to it.
+
 ## Body weight
 
-`/body-weight`, reachable from the nav sheet alongside Workouts and
-Exercises. A weigh-in is a date, a reading in kilograms and optional notes,
+`/body-weight`, a tab of its own. A weigh-in is a date, a reading in
+kilograms and optional notes,
 and the page graphs every one of them for the active profile -- date along
 the bottom, weight up the side.
 
@@ -81,9 +131,14 @@ record looks like a gap.
 The chart is hand-written SVG in
 [frontend/src/lib/weight-chart.ts](frontend/src/lib/weight-chart.ts), which
 keeps the scaling and axis arithmetic out of the component so it can be
-tested directly. No charting library is involved. Its line picks up the
-logo's red-to-orange gradient, via `--chart-from` / `--chart-to` in
-`app.css`.
+tested directly. No charting library is involved. It hands the axis back ISO
+dates rather than formatted labels, so the geometry carries no locale and the
+dates follow whichever language is loaded. Its line picks up the brand ramp,
+via `--chart-from` / `--chart-to` in
+[`frontend/src/lib/styles/tokens.css`](frontend/src/lib/styles/tokens.css).
+
+Each weigh-in can carry progress photos, shrunk on the device before upload;
+`/body-weight/compare` puts two dates' photos side by side.
 
 ## Tags
 
@@ -99,9 +154,15 @@ A tag is stored with one colour, taken from a fixed palette in
 [frontend/src/lib/tags.ts](frontend/src/lib/tags.ts). A new tag gets the
 first colour nothing else is using, so a profile's tags come out distinct
 without anyone picking colours. The badge mixes its fill and border from that
-single value (`.tag-badge` in `app.css`), which is why one stored colour
-reads correctly in both themes -- the value is the mid-tone used for the
-label, and the pale wash behind it is the same colour at low opacity.
+single value, which is why one stored colour reads correctly in both themes --
+the value is the mid-tone used for the label, and the pale wash behind it is
+the same colour at low opacity.
+
+The ten colours are checked rather than chosen: all of them clear the
+lightness band, the chroma floor, protan and deutan separation on every
+adjacent pair and 3:1 contrast, against the light card and the dark card
+alike. None is orange or red, so a tag cannot be mistaken for the brand or
+for a delete. See [docs/branding.md](docs/branding.md).
 
 Only exercises are taggable. The `Tag` model carries `for_sets` /
 `for_workouts` flags from an earlier design and nothing reads them yet.
@@ -115,8 +176,8 @@ them in memory -- the same approach `workout_detail` takes for sets.
 
 Every weight in the database is kilograms. The profile's `weight_unit` only
 decides how they are shown and how a typed number is read back, so the
-kg/lbs toggle in the nav sheet never rewrites a row and a round trip through
-the other unit returns the number you started with.
+kg/lbs control in Settings never rewrites a row and a round trip through the
+other unit returns the number you started with.
 
 Weights display to two decimal places, trailing zeros dropped.
 
@@ -125,7 +186,10 @@ Weights display to two decimal places, trailing zeros dropped.
 An exercise has a `kind`: `reps`, the default, or `time`. A timed exercise's
 sets record a `duration` in minutes to one decimal place instead of reps at a
 weight, so a session is logged as intervals -- the same list, measured
-differently. The toggle is in the exercise creation dialog.
+differently. The toggle is in the dialog that creates an exercise, and in the
+one that edits it -- it had to be in both, because the update body sends
+`kind` with a default of `reps`, so saving any edit to a timed exercise used
+to turn it back into a reps one.
 
 A set carries all of `weight`, `reps` and `duration` with zero defaults
 rather than one shape or the other, because a set is a flat item and the kind
@@ -133,13 +197,15 @@ that decides which apply lives on the exercise.
 
 ## Dark mode
 
-A per-profile preference, toggled with the sun/moon button in the nav sheet
-and stored as `dark_mode` on the profile, so it follows whoever is signed in
-rather than the browser.
+A per-profile preference, chosen in Settings and stored as `dark_mode` on the
+profile, so it follows whoever is signed in rather than the browser.
 
-Tailwind is configured `darkMode: ['class']`, so the whole thing is one class
-on `<html>`. Getting that class right turns out to be the only interesting
-part, because it has to arrive two different ways:
+The whole theme is one attribute on `<html>`: `data-theme="dark"` selects a
+second set of values for the same tokens. Dark is a chosen palette rather than
+an inversion -- its surfaces, inks and status colours are their own steps,
+each checked against the surface it actually sits on. Getting the attribute
+there turns out to be the only interesting part, because it has to arrive two
+different ways:
 
 - **On a full page load**, `hooks.server.ts` puts it in the markup before the
   response is sent. Waiting for JS would mean a white flash on every load of
@@ -147,10 +213,14 @@ part, because it has to arrive two different ways:
   profile, which would put a backend round trip in front of every render; the
   profile stays the source of truth and the layout corrects the cookie
   whenever the two disagree.
-- **On a client-side navigation**, `+layout.svelte` syncs the class from the
-  layout's data. The profile picker submits with `use:enhance`, so choosing a
-  profile never replaces the document and the server-rendered class would
-  otherwise be left over from the previous profile.
+- **On a client-side navigation**, `+layout.svelte` syncs the attribute from
+  the layout's data. The profile picker submits with `use:enhance`, so
+  choosing a profile never replaces the document and the server-rendered value
+  would otherwise be left over from the previous profile.
+
+There is no "System" option. `dark_mode` is a boolean on the profile, so a
+third value would be a change to the stored data; the Settings screen says so
+rather than leaving a gap for somebody to wonder about.
 
 ## Running it on a server
 
@@ -298,10 +368,29 @@ The frontend's checks need Node on the host:
 cd frontend && npm ci && npm run check && npm run lint && npm test
 ```
 
-`npm run check` is `svelte-check`, `npm test` is Vitest. All four of these
-gates run on every push and pull request; see `.github/workflows/ci.yml`,
-which also brings the whole stack up from a clean checkout, logs a set end to
-end, and asserts the data survives a restart.
+`npm run check` is `svelte-check`, `npm run lint` is Prettier and ESLint, and
+`npm test` is Vitest -- 202 unit tests over the arithmetic that is worth being
+sure about: unit conversion and formatting, the chart's scaling and axis
+rounding, tag colour assignment, the camelCase/snake_case mappers, the
+calendar's date handling, the dashboard's summaries and the string catalogue's
+shape.
+
+The end-to-end tests drive the real app in a real browser, so they need the
+stack up:
+
+```bash
+docker compose up -d --wait
+cd frontend && npx playwright install --with-deps chromium && npm run test:e2e
+```
+
+They cover the flows that matter end to end -- create a profile, start a
+workout, add a tagged exercise, log a set, add a weigh-in, change every
+setting -- at phone and desktop sizes. Each test makes its own profile, so
+they run in parallel against one stack.
+
+All of these run on every push and pull request; see
+`.github/workflows/ci.yml`, which also brings the whole stack up from a clean
+checkout, logs a set end to end, and asserts the data survives a restart.
 
 ## CI/CD
 
@@ -312,7 +401,7 @@ pull request, and every `v*` tag.
 | --- | --- |
 | Backend tests | `pytest` inside the image the app actually ships, so a dependency missing from the runtime fails here rather than in production |
 | Frontend checks | `npm ci`, `svelte-check`, `prettier`/`eslint`, Vitest |
-| Stack smoke test | Brings the whole stack up from a clean checkout, asserts the backend reached DynamoDB and the tables exist, logs a set at 80.1 kg end to end, restarts and checks the data survived, then checks every page serves 200 |
+| Stack smoke test | Brings the whole stack up from a clean checkout, asserts the backend reached DynamoDB and the tables exist, logs a set at 80.1 kg end to end, restarts and checks the data survived, checks every page serves 200 and that the theme is in the server's first byte, then runs the Playwright suite against it |
 | Publish images | Builds and pushes `backend` and `frontend` to GHCR |
 
 The publish job `needs` all three gates, so nothing ships unless the tests
@@ -393,8 +482,10 @@ Get a profile's id from `http://localhost:8000/api/profiles`.
 
 ## Installing it on a phone
 
-The app ships a web manifest and a service worker, so a phone can install it
-to the home screen and it opens without browser chrome. Reach it over your
+The app ships a web manifest, a maskable icon set and a service worker, so a
+phone can install it to the home screen and it opens without browser chrome.
+The icons are generated from the brand SVGs by `npm run icons`, which needs
+Playwright's Chromium and so is run by hand rather than during a build. Reach it over your
 network at `http://<this-machine>:3000` -- `FRONTEND_BIND` is `0.0.0.0` for
 exactly this.
 
@@ -440,7 +531,8 @@ documents all of them. The ones that matter:
 | `DYNAMO_TABLE_NAME` | `hardResources` | Must match what `scripts/init_tables.py` creates. |
 | `AWS_REGION` | `eu-west-2` | Dummy locally, but boto3 will not sign without it. |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | `local` / `local` | Dummy. DynamoDB Local ignores them; boto3 requires them to exist. |
-| `ORIGIN` | `http://localhost:3000` | The browser-facing URL. `adapter-node` checks form POSTs against it and answers 403 if it does not match. Blank it behind a reverse proxy to use the headers below instead, which is what lets http and https work at once. |
+| `UI_LOCALE` | `en` | Which string catalogue the server renders. Only `en` ships today; see **Branches**. An unknown value falls back to `en` rather than serving a page of `undefined`. |
+| `ORIGIN` | `http://localhost:3000` | The browser-facing URL. `adapter-node` checks form POSTs against it and answers 403 if it does not match. Blank it behind a reverse proxy to use the headers below instead, which is what lets http and https work at once. A blank value is normalised to an absent one by `frontend/docker-entrypoint.sh`, because the adapter refuses an empty string outright and exits on boot. |
 | `PROTOCOL_HEADER` | `x-forwarded-proto` | Read only when `ORIGIN` is blank. |
 | `HOST_HEADER` | `x-forwarded-host` | Read only when `ORIGIN` is blank. |
 | `WATCHTOWER_POLL_INTERVAL` | `3600` | Seconds between update checks, with the GHCR compose file. |

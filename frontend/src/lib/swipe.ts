@@ -25,10 +25,20 @@ export function swipe(node: HTMLElement, options: SwipeOptions) {
 	let startY = 0;
 	let startedAt = 0;
 	let tracking = false;
+	let swallowClick = false;
 
 	function down(event: PointerEvent) {
-		// Not a secondary button, and not a drag started on a control.
-		if (event.button !== 0 || (event.target as HTMLElement).closest('button, a, input, select')) {
+		/*
+		 * Links and buttons are *not* excluded. The list being swiped is made
+		 * of cards, each of which is a link, so excluding them left the
+		 * gesture working only in the gaps between them. A swipe needs real
+		 * travel, which a tap does not have, and the click it would otherwise
+		 * also fire is swallowed below.
+		 *
+		 * Text fields are excluded: dragging sideways in one selects text,
+		 * and that has to keep working.
+		 */
+		if (event.button !== 0 || (event.target as HTMLElement).closest('input, select, textarea')) {
 			tracking = false;
 			return;
 		}
@@ -57,12 +67,29 @@ export function swipe(node: HTMLElement, options: SwipeOptions) {
 			return;
 		}
 
+		// The pointer went down on a card and came up somewhere else, so the
+		// browser is about to follow that card's link. It was a swipe.
+		swallowClick = true;
+
 		current.onswipe(dx < 0 ? 'left' : 'right');
+	}
+
+	/** Swallows exactly one click, the one this swipe is about to produce. */
+	function click(event: MouseEvent) {
+		if (!swallowClick) {
+			return;
+		}
+
+		swallowClick = false;
+		event.preventDefault();
+		event.stopPropagation();
 	}
 
 	node.addEventListener('pointerdown', down);
 	node.addEventListener('pointerup', up);
 	node.addEventListener('pointercancel', () => (tracking = false));
+	// Capture, so it runs before the link's own handling.
+	node.addEventListener('click', click, true);
 
 	return {
 		update(next: SwipeOptions) {
@@ -71,6 +98,7 @@ export function swipe(node: HTMLElement, options: SwipeOptions) {
 		destroy() {
 			node.removeEventListener('pointerdown', down);
 			node.removeEventListener('pointerup', up);
+			node.removeEventListener('click', click, true);
 		}
 	};
 }

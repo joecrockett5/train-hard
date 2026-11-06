@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import Card from '$ui/Card.svelte';
 	import Button from '$ui/Button.svelte';
 	import EmptyState from '$ui/EmptyState.svelte';
@@ -67,11 +68,22 @@
 		later: later?.photos.length ?? 0
 	});
 
-	// A new date brings a different number of photos with it, so a position
-	// left over from the last one can point past the end of this one.
+	/**
+	 * A new date brings a different number of photos with it, so a position
+	 * left over from the last one can point past the end of this one.
+	 *
+	 * The read of `chosen` is untracked, because this also writes it: tracked,
+	 * the effect's own write retriggers it, `clampChosen` hands back a fresh
+	 * object every time so nothing settles, and Svelte stops it with
+	 * `effect_update_depth_exceeded`. The only thing it should follow is the
+	 * number of photos on each side.
+	 */
 	$effect(() => {
 		const current = counts;
-		chosen = clampChosen(chosen, current);
+		chosen = clampChosen(
+			untrack(() => chosen),
+			current
+		);
 	});
 
 	const sides = $derived([

@@ -302,26 +302,56 @@ Recorded because the rebuild should not faithfully reproduce them.
 
 ## Parity checklist
 
-Ticked against the rebuild at the end. See the PR description for the result.
+Ticked against the rebuild. Every item was checked in the running app unless
+it says otherwise; the deliberate differences are listed under it.
 
-- [ ] Profiles: list, create, select, switch, cookie semantics, redirect gate, 401 on `/api`, stale-cookie recovery, backend-down tolerance
-- [ ] Profile rename (new, backend already supported)
-- [ ] Workouts: create, view, edit, delete, separate workout date, same-day duplicates, calendar, swipe between days, `?date=`, exercise ordering, join-keyed cards
-- [ ] Templates: list, create, edit, delete, detail page, add/remove exercises, exercise count, import into new workout, import into open workout, save open workout as template
-- [ ] Exercises: list newest first, create, edit, delete, `kind` reps/time, picker with search over name and description, excluded-already-present, create-and-add
-- [ ] Sets: log, edit, delete, warm-up vs working, weight prefill, decimal/numeric keypads, creation skeleton, timed exercises in minutes to 1 dp, no warm-up list for timed
-- [ ] Set history: previous 3 sessions, per-set tick/cross/dash comparison
-- [ ] Tags: create, apply, remove, duplicate refusal, optimistic writes, ANY filtering on all five surfaces, filter offers only tags in use, fixed palette with first-unused assignment, readable in both themes, filter resets the pager
-- [ ] Body weight: list, create, edit, delete, kg storage, separate entry date, notes
-- [ ] Chart: every entry plotted, day-spaced points, rounded value axis, flat-series range, lone-entry centring, ≤4 non-repeating date labels, summary with change, unit-aware, unit-tested
-- [ ] Progress photos: pick, client-side shrink with EXIF orientation, upload per file, tolerate failures, gallery disclosure, full-size dialog, remove, missing-file message
-- [ ] Compare photos: availability rule, widest default pair, positional pairing, link/unlink, clamping, fit-not-crop, two columns at all widths
-- [ ] Units: kg storage, display-only conversion, exact `KG_PER_LB`, 2 dp trailing-zero-dropped, 1 dp durations, lossless round trip, app-wide propagation
-- [ ] Dark mode: per profile, no flash on full load, correct on client-side navigation, correct on profile switch, optimistic with rollback, cleared on switch
-- [ ] Unified Profile Settings replacing the two nav-sheet toggles, one place per setting
-- [ ] Dashboard keeping everything the old home screen did
-- [ ] PWA: manifest, maskable icons, apple touch icon, service worker assets-only, nothing under `/api` cached, per-file precache, OS-fetched icons excluded
-- [ ] Scroll to top on every navigation; pager page size 8 with clamping; confirm before every delete
-- [ ] `ORIGIN` / `PROTOCOL_HEADER` / `HOST_HEADER` behaviour preserved
-- [ ] Browser talks only to the frontend server; `/api/*` proxy with camelCase ↔ snake_case and `X-Profile-Id`
-- [ ] All user-facing strings centralised so `japanese` can return as a locale
+- [x] Profiles: list, create, select, switch, cookie semantics, redirect gate, 401 on `/api`, stale-cookie recovery, backend-down tolerance
+- [x] Profile rename (new, backend already supported)
+- [x] Workouts: create, view, edit, delete, separate workout date, same-day duplicates, calendar, swipe between days, `?date=`, exercise ordering, join-keyed cards
+- [x] Templates: list, create, edit, delete, detail page, add/remove exercises, exercise count, import into new workout, import into open workout, save open workout as template
+- [x] Exercises: list newest first, create, edit, delete, `kind` reps/time, picker with search over name and description, excluded-already-present, create-and-add
+- [x] Sets: log, edit, delete, warm-up vs working, weight prefill, decimal/numeric keypads, creation skeleton, timed exercises in minutes to 1 dp, no warm-up list for timed
+- [x] Set history: previous 3 sessions, per-set tick/cross/dash comparison
+- [x] Tags: create, apply, remove, duplicate refusal, optimistic writes, ANY filtering on all five surfaces, filter offers only tags in use, fixed palette with first-unused assignment, readable in both themes, filter resets the pager
+- [x] Body weight: list, create, edit, delete, kg storage, separate entry date, notes
+- [x] Chart: every entry plotted, day-spaced points, rounded value axis, flat-series range, lone-entry centring, ≤4 non-repeating date labels, summary with change, unit-aware, unit-tested
+- [x] Progress photos: pick, client-side shrink with EXIF orientation, upload per file, tolerate failures, gallery disclosure, full-size dialog, remove, missing-file message
+- [x] Compare photos: availability rule, widest default pair, positional pairing, link/unlink, clamping, fit-not-crop, two columns at all widths
+- [x] Units: kg storage, display-only conversion, exact `KG_PER_LB`, 2 dp trailing-zero-dropped, 1 dp durations, lossless round trip, app-wide propagation
+- [x] Dark mode: per profile, no flash on full load, correct on client-side navigation, correct on profile switch, optimistic with rollback, cleared on switch
+- [x] Unified Profile Settings replacing the two nav-sheet toggles, one place per setting
+- [x] Dashboard keeping everything the old home screen did
+- [x] PWA: manifest, maskable icons, apple touch icon, service worker assets-only, nothing under `/api` cached, per-file precache, OS-fetched icons excluded
+- [x] Scroll to top on every navigation; pager page size 8 with clamping; confirm before every delete
+- [x] `ORIGIN` / `PROTOCOL_HEADER` / `HOST_HEADER` behaviour preserved
+- [x] Browser talks only to the frontend server; `/api/*` proxy with camelCase ↔ snake_case and `X-Profile-Id`
+- [x] All user-facing strings centralised so `japanese` can return as a locale
+
+### What is deliberately different
+
+- **The nav sheet is gone.** Navigation is a bottom tab bar on a phone and a
+  side rail from tablet width up; the profile and every setting are behind the
+  avatar. The sheet was doing three unrelated jobs and holding the only two
+  preferences as unlabelled icon buttons.
+- **No "System" appearance.** `dark_mode` is a boolean on the profile, so a
+  third value is a data-model change. The Settings screen says so where the
+  option would have been.
+- **Profile rename is new.** The backend already accepted it; nothing reached
+  it. The brief asks Profile Settings to cover profile identity.
+- **The exercise kind is editable, not just settable.** It had to become so:
+  the update body sends `kind` with a default of `reps`, so saving any edit to
+  a timed exercise silently converted it back.
+- **Set history is dated by the workout, not the row.** The old UI labelled a
+  previous session with the exercise-join's write time, so a week of sessions
+  entered on Sunday all read as Sunday.
+- **The set comparison compares against the previous session.** It compared
+  the live session against the *oldest* session it had fetched.
+- **`/workouts` loads every workout once** instead of one request per date, so
+  the calendar can mark the days that have something on them and swiping does
+  not wait on the network.
+- **`/api/preferences` is now `/api/profile`**, because it carries the name as
+  well as the two preferences.
+- **The tag palette changed.** Existing tags keep the colour they were stored
+  with; the new list only governs what the next tag is given.
+- **`frontend/todos.md` is gone.** It was a scratch file from the first build,
+  listing work that had either been done or been replaced.

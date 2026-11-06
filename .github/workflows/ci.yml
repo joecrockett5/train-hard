@@ -126,19 +126,16 @@ jobs:
       - name: The frontend serves its pages
         run: |
           set -euo pipefail
-          for path in / /profiles /workouts /exercises /body-weight; do
+          for path in / /profiles /workouts /exercises /templates /body-weight /settings; do
             code=$(curl --silent --output /dev/null --write-out '%{http_code}' \
               --cookie "profileId=${profile}" "http://localhost:3000${path}")
             echo "$path -> $code"
             [ "$code" = "200" ]
           done
 
-      # The theme has to be in the first byte the server sends, or a dark
-      # profile paints white before the JS runs. Asserting on the markup is
-      # the only way to catch that regressing.
-      # The home page's summary reads the weigh-ins, and its button posts a
-      # workout dated today. A 200 alone would not catch either breaking.
-      - name: The home page shows the weight summary
+      # The dashboard reads the weigh-ins, and its button posts a workout
+      # dated today. A 200 alone would not catch either breaking.
+      - name: The dashboard shows the weight summary
         run: |
           set -euo pipefail
 
@@ -182,52 +179,91 @@ jobs:
             http://localhost:8000/api/exercises \
             | python3 -c 'import json,sys; e=[x for x in json.load(sys.stdin) if x["name"]=="Bench"][0]; assert e["tags"] == [], e'
 
+      # The theme has to be in the first byte the server sends, or a dark
+      # profile paints white before the JS runs. Asserting on the markup is
+      # the only way to catch that regressing.
       - name: The theme is server-rendered
         run: |
           set -euo pipefail
 
           curl --silent --cookie "profileId=${profile}; theme=dark" \
-            http://localhost:3000/ | grep -q '<html lang="en" class="dark">'
+            http://localhost:3000/ | grep -q 'data-theme="dark"'
 
           curl --silent --cookie "profileId=${profile}" \
-            http://localhost:3000/ | grep -q '<html lang="en" class="">'
+            http://localhost:3000/ | grep -q 'data-theme="light"'
 
-      - name: Toggling a preference stores it on the profile
+      - name: Changing a setting stores it on the profile
         run: |
           set -euo pipefail
 
-          # The toggle's own path: the frontend endpoint, which updates the
-          # profile, drops its cached copy and re-sets the cookie.
-          curl --fail --silent -X PUT http://localhost:3000/api/preferences \
+          # The settings screen's own path: the frontend endpoint, which
+          # updates the profile, drops its cached copy and re-sets the cookie.
+          curl --fail --silent -X PUT http://localhost:3000/api/profile \
             -H 'Content-Type: application/json' --cookie "profileId=${profile}" \
             -d '{"darkMode":true}' | grep -q '"darkMode":true'
 
           curl --fail --silent "http://localhost:8000/api/profiles/${profile}" \
             | python3 -c 'import json,sys; assert json.load(sys.stdin)["dark_mode"] is True, "not stored on the profile"'
 
-          curl --fail --silent -X PUT http://localhost:3000/api/preferences \
+          curl --fail --silent -X PUT http://localhost:3000/api/profile \
             -H 'Content-Type: application/json' --cookie "profileId=${profile}" \
             -d '{"darkMode":false}' | grep -q '"darkMode":false'
 
           # A non-boolean is refused, and without a profile there is nothing
           # to store it on.
-          [ "$(curl --silent -o /dev/null -w '%{http_code}' -X PUT http://localhost:3000/api/preferences \
+          [ "$(curl --silent -o /dev/null -w '%{http_code}' -X PUT http://localhost:3000/api/profile \
             -H 'Content-Type: application/json' --cookie "profileId=${profile}" -d '{"darkMode":"yes"}')" = "400" ]
-          [ "$(curl --silent -o /dev/null -w '%{http_code}' -X PUT http://localhost:3000/api/preferences \
+          [ "$(curl --silent -o /dev/null -w '%{http_code}' -X PUT http://localhost:3000/api/profile \
             -H 'Content-Type: application/json' -d '{"darkMode":true}')" = "401" ]
 
           # The weight unit rides the same route. Storage stays in kilograms
           # whichever is chosen, so this only has to reach the profile.
-          curl --fail --silent -X PUT http://localhost:3000/api/preferences \
+          curl --fail --silent -X PUT http://localhost:3000/api/profile \
             -H 'Content-Type: application/json' --cookie "profileId=${profile}" \
             -d '{"weightUnit":"lbs"}' | grep -q '"weightUnit":"lbs"'
 
           curl --fail --silent "http://localhost:8000/api/profiles/${profile}" \
             | python3 -c 'import json,sys; assert json.load(sys.stdin)["weight_unit"] == "lbs", "not stored on the profile"'
 
-          curl --fail --silent -X PUT http://localhost:3000/api/preferences \
+          curl --fail --silent -X PUT http://localhost:3000/api/profile \
             -H 'Content-Type: application/json' --cookie "profileId=${profile}" \
             -d '{"weightUnit":"kg"}' > /dev/null
+
+          # The name rides it too -- it is the one thing on that screen the
+          # old UI had no way to change at all.
+          curl --fail --silent -X PUT http://localhost:3000/api/profile \
+            -H 'Content-Type: application/json' --cookie "profileId=${profile}" \
+            -d '{"name":"ci renamed"}' | grep -q '"name":"ci renamed"'
+
+          [ "$(curl --silent -o /dev/null -w '%{http_code}' -X PUT http://localhost:3000/api/profile \
+            -H 'Content-Type: application/json' --cookie "profileId=${profile}" -d '{"name":"  "}')" = "400" ]
+
+      # The flows a person actually performs, in a real browser, at phone and
+      # desktop sizes. Everything above this asserts on one request at a time;
+      # this is the only thing that checks the app works.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install the end-to-end suite
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: End-to-end tests
+        working-directory: frontend
+        run: npm run test:e2e
+
+      - name: Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 7
 
       - name: Service logs on failure
         if: failure()

@@ -122,12 +122,17 @@
 	{/if}
 
 	{#if !readonly}
+		<!--
+			"Edit set", not "Edit": the screen it sits on also has an Edit for
+			the workout, and a pencil with no more to say than "Edit" leaves a
+			screen reader to guess which is which.
+		-->
 		<Button
 			variant="ghost"
 			size="sm"
 			iconOnly
 			icon="pencil"
-			label={t.common.edit}
+			label={t.sets.editSet}
 			onclick={openEditor}
 		/>
 	{/if}

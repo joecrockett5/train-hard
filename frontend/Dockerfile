@@ -27,13 +27,14 @@ WORKDIR /app
 COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/build ./build
+COPY docker-entrypoint.sh ./docker-entrypoint.sh
 
 # `node` is a pre-existing non-root user in the official image.
 USER node
 
 EXPOSE 3000
 
-CMD ["node", "build/index.js"]
+CMD ["./docker-entrypoint.sh"]
 
 
 # ---- development ----------------------------------------------------------
