@@ -1,33 +1,30 @@
-# train-hard
+<div align="center">
 
-A workout tracking app. FastAPI backend, SvelteKit frontend, DynamoDB for
-storage — all running locally in Docker. No AWS account needed.
+<img src="docs/assets/banner.png" alt="train hard — workout tracking you host yourself" width="100%">
 
-```
-backend/        FastAPI app (Python 3.11)
-frontend/       SvelteKit app (adapter-node)
-scripts/        Table creation and seeding
-seed-data/      Drop JSON dumps here (gitignored)
-infra-legacy/   The old AWS deployment config, kept for reference
-```
+<br>
 
-## Branches
+[![CI](https://github.com/joecrockett5/train-hard/actions/workflows/ci.yml/badge.svg)](https://github.com/joecrockett5/train-hard/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/joecrockett5/train-hard?color=ff6a3d&label=release)](https://github.com/joecrockett5/train-hard/releases)
+[![Licence: MIT](https://img.shields.io/badge/licence-MIT-ff6a3d.svg)](LICENSE)
+[![GHCR](https://img.shields.io/badge/ghcr.io-backend%20%C2%B7%20frontend-2496ED?logo=docker&logoColor=white)](https://github.com/joecrockett5?tab=packages&repo_name=train-hard)
 
-| Branch | UI language |
-| --- | --- |
-| `main` | English |
-| `japanese` | Japanese (日本語) |
+[![Python 3.11](https://img.shields.io/badge/python-3.11-3776AB?logo=python&logoColor=white)](backend/pyproject.toml)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688?logo=fastapi&logoColor=white)](backend/requirements.txt)
+[![Node 22](https://img.shields.io/badge/node-22-5FA04E?logo=nodedotjs&logoColor=white)](frontend/package.json)
+[![SvelteKit 2](https://img.shields.io/badge/SvelteKit-2-FF3E00?logo=svelte&logoColor=white)](frontend/package.json)
+[![Tailwind 3](https://img.shields.io/badge/Tailwind-3-06B6D4?logo=tailwindcss&logoColor=white)](frontend/tailwind.config.js)
+[![Docker Compose](https://img.shields.io/badge/Docker%20Compose-v2-2496ED?logo=docker&logoColor=white)](docker-compose.yml)
 
-They are identical apart from the interface strings and date formatting.
-`japanese` is the original UI the app was written with, preserved so it can be
-picked up again; `main` is the English translation of it. Any change that is
-not a user-facing string should land on both.
+**A workout tracker you run yourself.** FastAPI backend, SvelteKit frontend,
+DynamoDB for storage — all of it local, in Docker. No AWS account, no sign-up,
+no subscription, no one else holding your training history.
 
-## Prerequisites
+[Quick start](#quick-start) · [Features](#features) · [Screenshots](#screenshots) · [Deployment](docs/deployment.md) · [Configuration](docs/configuration.md) · [Architecture](docs/architecture.md)
 
-- Docker Desktop (or any Docker Engine with Compose v2) — nothing else. No
-  Python, Node, or AWS CLI on the host.
-- Roughly 2 GB free for images.
+</div>
+
+---
 
 ## Quick start
 
@@ -48,367 +45,100 @@ only if you want to change something (ports, mainly).
 | http://localhost:8000/health | Backend health + DynamoDB reachability, loopback only |
 | http://localhost:8001 | DynamoDB Local, loopback only |
 
-## Profiles
-
-There are **no passwords**. A profile is just a name, and picking one selects
-which data you see — workouts, exercises and sets are partitioned per profile.
-
-Visiting any page without a profile selected redirects to `/profiles`, where
-you can pick an existing one or create a new one. The choice is stored in a
-`profileId` cookie; the nav sheet (the **+** button, bottom right) has a
-switch-profile option.
-
-This replaces the Cognito user pool the AWS version used. See
-[infra-legacy/README.md](infra-legacy/README.md) for what was removed.
-
-## Body weight
-
-`/body-weight`, reachable from the nav sheet alongside Workouts and
-Exercises. A weigh-in is a date, a reading in kilograms and optional notes,
-and the page graphs every one of them for the active profile -- date along
-the bottom, weight up the side.
-
-Weights are always kilograms. A `Set` carries a unit because a gym's plates
-may be imperial; a bathroom scale is whatever its owner set it to once, so
-storing a unit per weigh-in would only create the possibility of a graph
-comparing two of them.
-
-The date is logged separately from the row's timestamp, as a workout's is, so
-a weigh-in can be entered days after the fact and still land on the right
-day. Points are spaced by elapsed days rather than evenly, so a gap in the
-record looks like a gap.
-
-The chart is hand-written SVG in
-[frontend/src/lib/weight-chart.ts](frontend/src/lib/weight-chart.ts), which
-keeps the scaling and axis arithmetic out of the component so it can be
-tested directly. No charting library is involved. Its line picks up the
-logo's red-to-orange gradient, via `--chart-from` / `--chart-to` in
-`app.css`.
-
-## Tags
-
-Exercises can be tagged, mainly with workout types -- Legs, Push, Pull. Tags
-are made and applied from an exercise's edit dialog, and both the exercises
-page and the add-an-exercise picker on a workout filter by them.
-
-Filtering is **any**, not all: the tags are workout types, so picking Push and
-Pull means "the exercises I could do on either day" rather than exercises
-that are somehow both.
-
-A tag is stored with one colour, taken from a fixed palette in
-[frontend/src/lib/tags.ts](frontend/src/lib/tags.ts). A new tag gets the
-first colour nothing else is using, so a profile's tags come out distinct
-without anyone picking colours. The badge mixes its fill and border from that
-single value (`.tag-badge` in `app.css`), which is why one stored colour
-reads correctly in both themes -- the value is the mid-tone used for the
-label, and the pale wash behind it is the same colour at low opacity.
-
-Only exercises are taggable. The `Tag` model carries `for_sets` /
-`for_workouts` flags from an earlier design and nothing reads them yet.
-
-Tags resolve through `TagJoin`, so reading them per exercise would be a query
-each. Every endpoint that returns exercises builds them with
-`exercises_with_tags`, which reads the joins and the tags once and matches
-them in memory -- the same approach `workout_detail` takes for sets.
-
-## Weights and units
-
-Every weight in the database is kilograms. The profile's `weight_unit` only
-decides how they are shown and how a typed number is read back, so the
-kg/lbs toggle in the nav sheet never rewrites a row and a round trip through
-the other unit returns the number you started with.
-
-Weights display to two decimal places, trailing zeros dropped.
-
-## Cardio
-
-An exercise has a `kind`: `reps`, the default, or `time`. A timed exercise's
-sets record a `duration` in minutes to one decimal place instead of reps at a
-weight, so a session is logged as intervals -- the same list, measured
-differently. The toggle is in the exercise creation dialog.
-
-A set carries all of `weight`, `reps` and `duration` with zero defaults
-rather than one shape or the other, because a set is a flat item and the kind
-that decides which apply lives on the exercise.
-
-## Dark mode
-
-A per-profile preference, toggled with the sun/moon button in the nav sheet
-and stored as `dark_mode` on the profile, so it follows whoever is signed in
-rather than the browser.
-
-Tailwind is configured `darkMode: ['class']`, so the whole thing is one class
-on `<html>`. Getting that class right turns out to be the only interesting
-part, because it has to arrive two different ways:
-
-- **On a full page load**, `hooks.server.ts` puts it in the markup before the
-  response is sent. Waiting for JS would mean a white flash on every load of
-  a dark profile. It reads a `theme` cookie rather than resolving the
-  profile, which would put a backend round trip in front of every render; the
-  profile stays the source of truth and the layout corrects the cookie
-  whenever the two disagree.
-- **On a client-side navigation**, `+layout.svelte` syncs the class from the
-  layout's data. The profile picker submits with `use:enhance`, so choosing a
-  profile never replaces the document and the server-rendered class would
-  otherwise be left over from the previous profile.
-
-## Running it on a server
-
-Behind a reverse proxy (Nginx Proxy Manager, Caddy, Traefik) on your own
-network. The example uses `training.jmedia` on port 7999; substitute yours.
-
-**1. Clone it and write a `.env`.**
-
-```bash
-git clone <your-repo> train-hard && cd train-hard
-cp .env.example .env
-```
-
-Two values matter:
-
-```bash
-FRONTEND_HOST_PORT=7999          # the port the proxy forwards to
-```
-
-**2. Add the proxy override to the command.**
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.proxy.yml up -d --build
-```
-
-The origin is the thing that catches people. SvelteKit compares it against
-the `Origin` header on every form POST, and selecting or creating a profile
-is a form POST. Get it wrong and those silently do nothing — a 403 the UI
-does not surface.
-
-`docker-compose.proxy.yml` works it out per request from the proxy's own
-headers, which is why it is a file you add rather than a value you set.
-http:// and https:// then both work at the same time; a fixed URL matches
-one of them and refuses the other. It also marks the profile cookie `Secure`
-on exactly the requests that are secure — a Secure cookie sent over http is
-discarded by the browser, which looks like selecting a profile doing nothing
-at all.
-
-Without the override, `ORIGIN` is a fixed URL: the default is localhost, and
-you set it in `.env` for anything else. It must match the address bar
-exactly — scheme, host, and a port only if one is shown. Unproxied that is
-what you want, because with no proxy header the adapter assumes https and
-would refuse plain http visitors.
-
-Setting `ORIGIN=` blank in `.env` does the same job as the override file,
-but a line that is deleted or commented out instead of blanked falls back to
-the localhost default and looks identical in an editor. The override file
-cannot be got subtly wrong.
-
-**2. Bring it up.**
-
-```bash
-docker compose up -d --build
-```
-
-**3. Check it.**
-
-```bash
-curl http://localhost:8000/health      # {"status":"ok","dynamodb":"ok"}
-curl -I http://localhost:7999/         # 200
-docker compose ps                      # all three healthy
-```
-
-The backend and DynamoDB bind to `127.0.0.1` deliberately — a profile id is
-the only credential the API takes, so only the frontend is exposed. Your
-proxy only needs port 7999.
-
-**4. Point DNS and the proxy at it.**
-
-- Pi-hole: a local DNS record, `training.jmedia` → the server's LAN IP.
-- Nginx Proxy Manager: new Proxy Host, domain `training.jmedia`, scheme
-  `http`, forward to the server's LAN IP, port `7999`. Use the LAN IP rather
-  than `localhost` — NPM in a container resolves `localhost` to itself.
-
-**5. Open it, create a profile, done.**
-
-### Keeping it updated
-
-`docker-compose.ghcr.yml` runs Watchtower alongside the published images. It
-watches the tag each container is running and redeploys when that tag's
-digest changes, so a push to `main` reaches the machine on its own. It only
-touches containers carrying
-`com.centurylinklabs.watchtower.enable` -- the three app services do,
-DynamoDB deliberately does not.
-
-Pinning a version or a sha as `IMAGE_TAG` is how you opt out: those never
-move, so Watchtower finds nothing to do. `latest` and `japanese` are the
-moving tags.
-
-It needs the Docker socket, which is full control of the daemon. Fine on a
-machine you own; think twice on a shared host.
-
-### Afterwards
-
-- **Reboots** are handled: every long-running service is `unless-stopped`, so
-  Docker brings them back. `dynamodb-init` does not re-run, which is correct —
-  the table is already in the volume.
-- **Backups.** All data is in the `train-hard-dynamodb-data` volume. To copy
-  it out:
-  ```bash
-  docker run --rm -v train-hard-dynamodb-data:/data -v "$PWD":/backup alpine \
-    tar czf /backup/hard-backup.tar.gz -C /data .
-  ```
-- **Updating.** `git pull && docker compose up -d --build`. The volume is
-  untouched, so your data stays.
-- **Service workers need HTTPS**, so over plain HTTP you get the app and the
-  home-screen icon but no offline caching. The browser still caches all JS and
-  CSS for a year regardless, so this costs you offline, not speed.
-
-## Dev mode
-
-Hot reload for both services — backend via `uvicorn --reload`, frontend via
-the Vite dev server, both with the source bind-mounted:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
-```
-
-The frontend moves to **http://localhost:5173** in dev mode (the production
-container's port 3000 is still published, but it is the dev server you want).
-
-Edits to `backend/src/` and `frontend/src/` take effect without a rebuild.
-Rebuild only when you change a dependency manifest:
-
-```bash
-docker compose build
-```
-
-## Running the tests
-
-The backend suite runs in the same image as the app, with the dev
-dependencies layered on:
-
-```bash
-docker compose --profile test run --rm test
-```
-
-It uses `moto` to mock DynamoDB, so it needs neither the `dynamodb` service
-nor any credentials. It covers the data layer and drives the real FastAPI app
-through a `TestClient`.
-
-The frontend's checks need Node on the host:
-
-```bash
-cd frontend && npm ci && npm run check && npm run lint && npm test
-```
-
-`npm run check` is `svelte-check`, `npm test` is Vitest. All four of these
-gates run on every push and pull request; see `.github/workflows/ci.yml`,
-which also brings the whole stack up from a clean checkout, logs a set end to
-end, and asserts the data survives a restart.
-
-## CI/CD
-
-`.github/workflows/ci.yml` runs on every push to `main` or `japanese`, every
-pull request, and every `v*` tag.
-
-| Job | What it does |
-| --- | --- |
-| Backend tests | `pytest` inside the image the app actually ships, so a dependency missing from the runtime fails here rather than in production |
-| Frontend checks | `npm ci`, `svelte-check`, `prettier`/`eslint`, Vitest |
-| Stack smoke test | Brings the whole stack up from a clean checkout, asserts the backend reached DynamoDB and the tables exist, logs a set at 80.1 kg end to end, restarts and checks the data survived, then checks every page serves 200 |
-| Publish images | Builds and pushes `backend` and `frontend` to GHCR |
-
-The publish job `needs` all three gates, so nothing ships unless the tests
-pass. It skips pull requests entirely.
-
-### Images
-
-Pushed to `ghcr.io/<owner>/<repo>/backend` and `.../frontend`, tagged with the
-branch name, the full commit sha, and — on `main` — `latest`. A `v1.2.0` tag
-also produces `1.2.0` and `1.2`.
-
-The two branches build the same app with different interface strings, so
-their images never share a tag: an update must not quietly change the
-language. `main` owns `latest`; `japanese` has its own branch tag, and a
-release cut from it is suffixed so it cannot overwrite the English one.
-Every image also carries a `net.train-hard.ui-language` label.
-
-| Tag | What |
-| --- | --- |
-| `latest` | English, tracking `main` |
-| `japanese` | Japanese, tracking that branch |
-| `1.2.0` | an English release |
-| `1.2.0-ja` | the same release, Japanese |
-| `<sha>` | exactly one build |
-
-To run them instead of building locally, with no configuration:
+**Prerequisites:** Docker Desktop, or any Docker Engine with Compose v2 —
+nothing else. No Python, Node or AWS CLI on the host. Roughly 2 GB free for
+images.
+
+Prefer the published images to a local build? One more file, and nothing to
+configure:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.ghcr.yml up -d
 ```
 
-`IMAGE_REPO` defaults to this project's own packages, so a clone pulls the
-published build; set it to run a fork's images instead. `IMAGE_TAG` picks
-which build and which language — `latest` by default, see the table above —
-and pinning a release or a commit sha is how you stop Watchtower moving you
-on. DynamoDB, the table init and the volume still come from
-`docker-compose.yml`.
+## Logging a session
 
-**GHCR packages are private until you say otherwise.** Anyone pulling a
-private one needs `docker login ghcr.io` with a token that can read
-packages; make them public (Packages → the package → Package settings →
-Change visibility) and the command above works for anybody, unauthenticated.
+<div align="center">
+  <img src="docs/assets/usage.gif" alt="Starting a workout from a template and logging a working set" width="320">
+</div>
 
-Nothing deploys to a server — there is no hosting target configured. The
-pipeline's output is tested, tagged images.
+Start the day's workout, pull in a template, open an exercise and log a set —
+the whole loop, on a phone, in about fifteen seconds. Every exercise shows what
+you did last time it came round, and the weight field arrives pre-filled with
+it, because the question at the bar is almost always "what did I do last
+week?".
 
-## Resetting the database
+## Features
 
-Data lives in a named volume, `train-hard-dynamodb-data`, so it survives
-`docker compose down` and restarts. To wipe it:
+- **Profiles, not accounts.** No passwords and no user pool. A profile is a
+  name; picking one scopes every workout, exercise and set to it. Switching is
+  one tap in the nav sheet.
+- **Workouts from templates.** Save a session's shape once — Push Day, Legs —
+  and import it into a new workout instead of rebuilding it each week.
+- **Sets that remember.** Working and warm-up sets per exercise, with the
+  previous session's numbers shown beside the input and used to pre-fill it.
+- **Tags that filter.** Tag exercises by workout type and filter the library by
+  any of them. Colours are assigned from a fixed palette, so a profile's tags
+  come out distinct without anyone choosing.
+- **Cardio too.** An exercise is `reps` or `time`; a timed one logs durations
+  in minutes instead of reps at a weight. Same list, measured differently.
+- **Body weight, graphed.** A date, a reading and optional notes, drawn as
+  hand-written SVG — no charting library — with points spaced by elapsed days,
+  so a gap in the record looks like a gap.
+- **Progress photos.** Attach a photo to a weigh-in and put any two of them
+  side by side, with the weights and the interval between them.
+- **kg or lbs, losslessly.** Everything is stored in kilograms; the unit is a
+  display preference, so a round trip through the other unit returns the
+  number you started with.
+- **Dark mode, server-rendered.** A per-profile preference that follows whoever
+  is signed in, applied before the response is sent — no white flash on load.
+- **Installs to a phone.** A web manifest and a service worker, so it opens
+  from the home screen without browser chrome and the interface survives a bad
+  connection.
+- **Yours.** One `docker compose up`, one named volume, no telemetry and no
+  network calls off the machine.
 
-```bash
-docker compose down -v
-```
+## Screenshots
 
-`-v` removes the volume. The next `up` recreates the table empty. To wipe the
-data but keep the images:
+<div align="center">
 
-```bash
-docker compose down -v && docker compose up
-```
+| Home | Workout | Exercises |
+| :---: | :---: | :---: |
+| <img src="docs/assets/screenshots/home-light.png" width="230" alt="Home"> | <img src="docs/assets/screenshots/workout-light.png" width="230" alt="A workout"> | <img src="docs/assets/screenshots/exercises-light.png" width="230" alt="Exercise library"> |
+| **Body weight** | **Compare** | **Templates** |
+| <img src="docs/assets/screenshots/body-weight-light.png" width="230" alt="Body weight chart"> | <img src="docs/assets/screenshots/compare-light.png" width="230" alt="Progress photo comparison"> | <img src="docs/assets/screenshots/templates-light.png" width="230" alt="Templates"> |
 
-## Seeding data
+</div>
 
-Put a JSON dump in `seed-data/` and run:
+<details>
+<summary><b>The same screens in dark mode</b></summary>
 
-```bash
-docker compose --profile seed run --rm seed /data/dump.json --profile-id <profile-uuid>
-```
+<div align="center">
 
-The script accepts app-shaped items, the output of `aws dynamodb scan`, and
-newline-delimited S3 table exports. `--profile-id` rewrites each item's owner,
-which an export from AWS needs since `user_id` there was a Cognito username.
-Add `--dry-run` to check parsing without writing. See
-[seed-data/README.md](seed-data/README.md).
+| Home | Workout | Exercises |
+| :---: | :---: | :---: |
+| <img src="docs/assets/screenshots/home-dark.png" width="230" alt="Home, dark"> | <img src="docs/assets/screenshots/workout-dark.png" width="230" alt="A workout, dark"> | <img src="docs/assets/screenshots/exercises-dark.png" width="230" alt="Exercise library, dark"> |
+| **Body weight** | **Compare** | **Templates** |
+| <img src="docs/assets/screenshots/body-weight-dark.png" width="230" alt="Body weight chart, dark"> | <img src="docs/assets/screenshots/compare-dark.png" width="230" alt="Progress photo comparison, dark"> | <img src="docs/assets/screenshots/templates-dark.png" width="230" alt="Templates, dark"> |
 
-Get a profile's id from `http://localhost:8000/api/profiles`.
+</div>
 
-## Installing it on a phone
+</details>
 
-The app ships a web manifest and a service worker, so a phone can install it
-to the home screen and it opens without browser chrome. Reach it over your
-network at `http://<this-machine>:3000` -- `FRONTEND_BIND` is `0.0.0.0` for
-exactly this.
+<details>
+<summary><b>Calendar, navigation and profiles</b></summary>
 
-The service worker caches the app's own assets, so the interface loads
-instantly and survives a bad connection. It deliberately does **not** cache
-anything under `/api`: showing a stale set list would be worse than showing
-an error. Logging a set still needs the backend reachable; true offline
-logging would need a sync queue, which this does not attempt.
+<div align="center">
 
-Browsers only register service workers over HTTPS or on `localhost`, so
-installing from another device over plain HTTP gets the manifest but not the
-offline caching. Put it behind a TLS-terminating proxy if you want both.
+| Workouts by date | Nav sheet | Profiles |
+| :---: | :---: | :---: |
+| <img src="docs/assets/screenshots/workouts-light.png" width="230" alt="Workouts calendar"> | <img src="docs/assets/screenshots/menu-light.png" width="230" alt="Navigation sheet"> | <img src="docs/assets/screenshots/profiles-light.png" width="230" alt="Profile picker"> |
 
-## How the pieces fit together
+</div>
+
+</details>
+
+## How it works
 
 ```
 browser ──▶ frontend :3000 ──▶ backend :8000 ──▶ dynamodb :8000
@@ -419,112 +149,71 @@ browser ──▶ frontend :3000 ──▶ backend :8000 ──▶ dynamodb :800
 ```
 
 The browser only ever talks to the SvelteKit server. Its `/api/*` routes are
-the only thing that calls the backend, translating `camelCase` ↔ `snake_case`
-on the way through and attaching the active profile as an `X-Profile-Id`
-header. Two consequences worth knowing:
+the only thing that calls the backend, so there is no browser-facing backend
+URL and no CORS configuration — and none is needed, because no cross-origin
+request is ever made. Storage is a single DynamoDB table whose partition key
+packs the owning profile and the object type together, which is why selecting a
+profile is all it takes to scope the data.
 
-- **There is no browser-facing backend URL**, and none is needed. `HARD_API`
-  is read server-side only.
-- **There is no CORS configuration**, and none is needed, because no
-  cross-origin request is ever made.
-
-## Configuration
-
-Everything is an environment variable with a default; `.env.example`
-documents all of them. The ones that matter:
-
-| Variable | Default | Notes |
-| --- | --- | --- |
-| `HARD_API` | `http://backend:8000/api` | Where the SvelteKit server finds the backend. Note the `/api` suffix. |
-| `DYNAMODB_ENDPOINT_URL` | `http://dynamodb:8000` | Set in compose. **Unset it and boto3 talks to real AWS instead** — that switch is the only difference between local and deployed storage. |
-| `DYNAMO_TABLE_NAME` | `hardResources` | Must match what `scripts/init_tables.py` creates. |
-| `AWS_REGION` | `eu-west-2` | Dummy locally, but boto3 will not sign without it. |
-| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | `local` / `local` | Dummy. DynamoDB Local ignores them; boto3 requires them to exist. |
-| `ORIGIN` | `http://localhost:3000` | The browser-facing URL. `adapter-node` checks form POSTs against it and answers 403 if it does not match. Blank it behind a reverse proxy to use the headers below instead, which is what lets http and https work at once. |
-| `PROTOCOL_HEADER` | `x-forwarded-proto` | Read only when `ORIGIN` is blank. |
-| `HOST_HEADER` | `x-forwarded-host` | Read only when `ORIGIN` is blank. |
-| `WATCHTOWER_POLL_INTERVAL` | `3600` | Seconds between update checks, with the GHCR compose file. |
-| `FRONTEND_HOST_PORT` | `3000` | |
-| `FRONTEND_BIND` | `0.0.0.0` | Published to the network so a phone can reach it. Set to `127.0.0.1` for this machine only. |
-| `BACKEND_HOST_PORT` | `8000` | Bound to 127.0.0.1. A profile id is the only credential the API takes, so it is deliberately not reachable from the network. |
-| `DYNAMODB_HOST_PORT` | `8001` | 8001 because the backend has 8000. Bound to 127.0.0.1. |
-
-No secrets are committed, and none are needed — the only credentials in the
-stack are the dummy values above.
-
-## Data model
-
-One DynamoDB table, single-table design:
+[The architecture notes](docs/architecture.md) go through the table layout and
+the reasoning behind each feature that has any.
 
 ```
-Table hardResources                      BillingMode PAY_PER_REQUEST
-  HASH   User_ObjectType  (S)            "{profile_id}#{object_type}"
-  RANGE  Timestamp        (S)            ISO-8601
-
-GSI ItemSearch
-  HASH   object_id        (S)            Projection: ALL
+backend/        FastAPI app (Python 3.11)
+frontend/       SvelteKit app (adapter-node)
+docs/           Deployment, configuration, architecture, troubleshooting
+scripts/        Table creation and seeding
+seed-data/      Drop JSON dumps here (gitignored)
+infra-legacy/   The old AWS deployment config, kept for reference
 ```
 
-The partition key packs the owning profile and the object type together, which
-is why selecting a profile is all it takes to scope the data. `ItemSearch`
-exists to fetch an item by `object_id` alone, without knowing its partition.
+## Documentation
 
-Object types: `Workout`, `Exercise`, `Set`, `Tag`, `Template`, `ExerciseJoin`,
-`TagJoin`, `BodyWeight`, and `Profile`. Profiles are stored under a reserved
-`__system__` owner so the registry can be listed before a profile has been
-chosen.
+| | |
+| --- | --- |
+| [Deployment](docs/deployment.md) | Running it on a server behind a proxy, published images, updates, backups, phone install |
+| [Configuration](docs/configuration.md) | Every environment variable, the compose files, ports, and the origin in detail |
+| [Architecture](docs/architecture.md) | How the services fit together, the data model, and the design decisions |
+| [Troubleshooting](docs/troubleshooting.md) | The failures that actually happen, and what they mean |
+| [Contributing](.github/CONTRIBUTING.md) | Dev mode, the test suites, and how a change gets in |
+| [Frontend notes](frontend/README.md) | Working on the SvelteKit app on its own |
 
-`infra-legacy/serverless.yml` remains the canonical schema definition;
-`scripts/init_tables.py` mirrors it.
+## Branches
 
-## Troubleshooting
+| Branch | UI language |
+| --- | --- |
+| `main` | English |
+| `japanese` | Japanese (日本語) |
 
-**Port already in use.** Copy `.env.example` to `.env` and change the
-`*_HOST_PORT` values.
+They are identical apart from the interface strings and date formatting.
+`japanese` is the original UI the app was written with, preserved so it can be
+picked up again; `main` is the English translation of it. Any change that is
+not a user-facing string should land on both.
 
-**`dynamodb-init` exits non-zero.** It waits 60 s for DynamoDB. Check
-`docker compose logs dynamodb` — if it reports a permissions error on `/data`,
-the volume predates the `user: root` setting; `docker compose down -v` clears it.
+The images never share a tag, so an update cannot quietly change the language:
+`main` owns `latest`, `japanese` has its own branch tag, and a release cut from
+it is suffixed `-ja`. See [published images](docs/deployment.md#published-images).
 
-**Backend is unhealthy.** `curl http://localhost:8000/health` reports whether
-it is DynamoDB that is unreachable. `docker compose logs backend` has the rest.
+## Roadmap
 
-**Frontend 500s on every page.** Usually `HARD_API` pointing somewhere wrong.
-It needs the `/api` suffix and must use the service name `backend`, not
-`localhost`, from inside the container.
+Nothing here is promised; it is what would come next.
 
-**403 "Cross-site POST form submissions are forbidden".** The origin the
-server believes it is serving does not match the one the browser sent.
+- [ ] Search on the workouts and exercises pages
+- [ ] Offline logging — the service worker caches the interface but not `/api`,
+      so logging a set still needs the backend reachable. A real sync queue is
+      the missing piece.
+- [ ] Per-exercise progress charts, reusing the body-weight chart
+- [ ] Rest timer between sets
+- [ ] Export a profile's data without reaching for the DynamoDB volume
 
-Behind a proxy, check the override file is actually in the command:
+## Contributing
 
-```bash
-docker compose -f docker-compose.yml -f docker-compose.proxy.yml up -d
-```
+Issues and pull requests are welcome — see
+[CONTRIBUTING.md](.github/CONTRIBUTING.md) for dev mode, the test suites, and
+the one rule that matters (changes that are not user-facing strings land on
+both branches). Participation is governed by the
+[Code of Conduct](.github/CODE_OF_CONDUCT.md).
 
-Without it the origin is a fixed URL, and a fixed URL cannot match a proxied
-domain it was not set to. Setting `ORIGIN=` blank in `.env` does the same
-job, but only if the line is there and empty — deleting or commenting it out
-falls back to the localhost default and looks the same in an editor.
+## Licence
 
-With `ORIGIN` set, it must be exactly the scheme, host and port in the
-address bar -- so one fixed value can serve http:// or https://, never both.
-Behind a reverse proxy, blank it instead:
-
-```bash
-ORIGIN=
-```
-
-and the origin is read per request from `PROTOCOL_HEADER` and `HOST_HEADER`
-(`x-forwarded-proto` and `x-forwarded-host` by default), which both schemes
-satisfy at once. That also makes the profile cookie `Secure` on exactly the
-requests that are secure, which is the other half of the symptom: a Secure
-cookie delivered over http is discarded, and selecting a profile then appears
-to do nothing.
-
-Blank `ORIGIN` only behind something that actually sets those headers.
-Unproxied, the adapter assumes https when the header is missing and an
-http:// visitor is refused.
-
-**Changes not appearing.** In production mode the app is a built bundle;
-either rebuild (`docker compose up --build`) or use dev mode.
+[MIT](LICENSE) © Joe Crockett
