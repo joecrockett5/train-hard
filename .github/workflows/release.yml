@@ -1,0 +1,94 @@
+name: Release
+
+# A release is a tag. CI already builds and publishes the versioned images
+# for `v*`; this workflow only cuts the GitHub Release that points at them.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Cut the release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    permissions:
+      contents: write
+
+    steps:
+      # The whole history, so --generate-notes can find the previous tag and
+      # the commits since it.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # The version strings are bumped in the commit before the tag, so a
+      # mismatch here means the tag was pushed without that commit.
+      - name: The tag matches the version in the manifests
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME#v}"
+
+          frontend=$(python3 -c 'import json; print(json.load(open("frontend/package.json"))["version"])')
+          backend=$(grep -m1 '^version' backend/pyproject.toml | cut -d'"' -f2)
+
+          echo "tag=$tag frontend=$frontend backend=$backend"
+          [ "$tag" = "$frontend" ] || { echo "frontend/package.json says $frontend"; exit 1; }
+          [ "$tag" = "$backend" ]  || { echo "backend/pyproject.toml says $backend"; exit 1; }
+
+      # A tag cut from `japanese` releases the Japanese build, whose images
+      # carry the `-ja` suffix. Saying so in the notes is the only place a
+      # reader finds out which one they are pulling.
+      - name: Which UI language this tag is
+        id: lang
+        run: |
+          if git branch --remotes --contains "$GITHUB_SHA" | grep -q 'origin/japanese'; then
+            echo "suffix=-ja" >> "$GITHUB_OUTPUT"
+            echo "label=Japanese (日本語)" >> "$GITHUB_OUTPUT"
+          else
+            echo "suffix=" >> "$GITHUB_OUTPUT"
+            echo "label=English" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Write the preamble
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          repo=$(printf '%s' "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')
+          suffix='${{ steps.lang.outputs.suffix }}'
+
+          cat > notes.md <<EOF
+          **UI language:** ${{ steps.lang.outputs.label }}
+
+          \`\`\`bash
+          IMAGE_TAG=${version}${suffix} \\
+            docker compose -f docker-compose.yml -f docker-compose.ghcr.yml up -d
+          \`\`\`
+
+          | Image | Tag |
+          | --- | --- |
+          | \`ghcr.io/${repo}/backend\` | \`${version}${suffix}\` |
+          | \`ghcr.io/${repo}/frontend\` | \`${version}${suffix}\` |
+
+          New here? [Quick start](https://github.com/${GITHUB_REPOSITORY}#quick-start) · [Deployment](https://github.com/${GITHUB_REPOSITORY}/blob/main/docs/deployment.md)
+          EOF
+
+      # A tag with a hyphen (v1.1.0-rc1) is a pre-release; the `-ja` suffix
+      # lives on the image tag, not the git tag, so it cannot collide here.
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          prerelease=""
+          case "$GITHUB_REF_NAME" in *-*) prerelease="--prerelease" ;; esac
+
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file notes.md \
+            --generate-notes \
+            --verify-tag \
+            $prerelease
