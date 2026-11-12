@@ -1,0 +1,83 @@
+name: Bug report
+description: Something does not work the way it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. If it is a security issue, please use
+        [private vulnerability reporting](https://github.com/joecrockett5/train-hard/security/advisories/new)
+        instead of this form.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you saw, and what you expected instead.
+      placeholder: |
+        I selected a profile and the page reloaded back to the profile picker.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce it
+      placeholder: |
+        1. docker compose up --build
+        2. Open http://localhost:3000
+        3. ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: branch
+    attributes:
+      label: Which branch or image
+      options:
+        - main (English)
+        - japanese
+        - a published image (ghcr.io)
+        - not sure
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: A release tag, or the output of `git rev-parse --short HEAD`.
+      placeholder: v1.0.0
+
+  - type: dropdown
+    id: how-run
+    attributes:
+      label: How are you running it
+      options:
+        - docker compose up (local build)
+        - docker-compose.ghcr.yml (published images)
+        - behind a reverse proxy
+        - dev mode
+        - something else
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: >
+        `docker compose ps` and the relevant `docker compose logs`. For a page
+        that fails to load, the browser console too. This is pasted into a code
+        block automatically.
+      render: shell
+
+  - type: checkboxes
+    id: checked
+    attributes:
+      label: Before you post
+      options:
+        - label: I checked [the troubleshooting guide](https://github.com/joecrockett5/train-hard/blob/main/docs/troubleshooting.md)
+          required: true
+        - label: This is not the known behaviour described in [the security policy](https://github.com/joecrockett5/train-hard/blob/main/.github/SECURITY.md) (there is no authentication, by design)
+          required: true

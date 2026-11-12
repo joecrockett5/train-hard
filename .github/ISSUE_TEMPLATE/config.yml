@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Troubleshooting guide
+    url: https://github.com/joecrockett5/train-hard/blob/main/docs/troubleshooting.md
+    about: The failures that actually happen, and what each one means.
+  - name: Report a security vulnerability
+    url: https://github.com/joecrockett5/train-hard/security/advisories/new
+    about: Privately, as a draft advisory — please do not open a public issue.
