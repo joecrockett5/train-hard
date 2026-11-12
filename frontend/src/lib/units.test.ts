@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	displayWeight,
+	editableWeight,
 	formatDuration,
 	formatWeight,
 	KG_PER_LB,
@@ -49,6 +50,27 @@ describe('displayWeight', () => {
 	it('converts, formats and labels in one go', () => {
 		expect(displayWeight(80, 'kg')).toBe('80kg');
 		expect(displayWeight(KG_PER_LB * 100, 'lbs')).toBe('100lbs');
+	});
+});
+
+describe('editableWeight', () => {
+	it('is the shown number, without its unit', () => {
+		expect(editableWeight(80, 'kg')).toBe(80);
+		expect(editableWeight(KG_PER_LB * 180, 'lbs')).toBe(180);
+	});
+
+	it('rounds the round trip, which does not always come back exact', () => {
+		// 185lbs stored is 83.91458845kg, which converts back to
+		// 185.00000000000003 -- not a number to put in an input box.
+		const stored = toStoredWeight(185, 'lbs');
+
+		expect(toDisplayWeight(stored, 'lbs')).not.toBe(185);
+		expect(editableWeight(stored, 'lbs')).toBe(185);
+	});
+
+	it('keeps the precision a weight is logged to', () => {
+		expect(editableWeight(82.5, 'kg')).toBe(82.5);
+		expect(editableWeight(80.25, 'kg')).toBe(80.25);
 	});
 });
 
