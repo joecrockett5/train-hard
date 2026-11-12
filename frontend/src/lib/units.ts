@@ -51,6 +51,19 @@ export function displayWeight(kilograms: number, unit: WeightUnit): string {
 	return `${formatWeight(toDisplayWeight(kilograms, unit))}${unit}`;
 }
 
+/**
+ * A stored weight as the number to put in an input box.
+ *
+ * `displayWeight` is for reading, so it carries its unit and is a string.
+ * This is for editing: a bare number in the unit on screen, rounded the same
+ * way, because the conversion is not exact in both directions and 170lbs
+ * stored and converted back is 170.00000000000003 -- not something anyone
+ * wants to find waiting in the box.
+ */
+export function editableWeight(kilograms: number, unit: WeightUnit): number {
+	return Number(formatWeight(toDisplayWeight(kilograms, unit)));
+}
+
 /** Minutes to one decimal place, with trailing zeros dropped. */
 export function formatDuration(minutes: number): string {
 	return (Math.round(minutes * 10) / 10).toString();

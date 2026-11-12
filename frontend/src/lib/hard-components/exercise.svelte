@@ -13,9 +13,9 @@
 	import ExerciseInfoComponent from '$lib/hard-components/exercise-info.svelte';
 	import TagBadge from '$lib/hard-components/tag-badge.svelte';
 	import * as Popover from '$lib/components/ui/popover/index.js';
-	import { summariseSets } from '$lib/sets';
+	import { firstWarmupWeight, nextWorkingWeight, summariseSets } from '$lib/sets';
 	import { sortTags } from '$lib/tags';
-	import { toStoredWeight, weightUnit } from '$lib/units';
+	import { toStoredWeight, weightUnit, type WeightUnit } from '$lib/units';
 
 	export let exercise: Exercise;
 	export let workoutId: string;
@@ -46,11 +46,6 @@
 	let workingSetReps: number | undefined = undefined;
 	let workingSetDuration: number | undefined = undefined;
 	let workingSetNotes = '';
-
-	const lastWorkingSet = workingSets.at(-1);
-	if (lastWorkingSet) {
-		workingSetWeight = lastWorkingSet.weight;
-	}
 
 	const creatingWarmupSet = writable(false);
 	const creatingWorkingSet = writable(false);
@@ -84,6 +79,7 @@
 			warmupSets.push(set);
 			warmupSets = warmupSets;
 
+			// A warm-up climbs, so the next one is rarely this weight again.
 			warmupSetWeight = undefined;
 			warmupSetReps = undefined;
 			warmupSetDuration = undefined;
@@ -121,12 +117,27 @@
 			workingSets.push(set);
 			workingSets = workingSets;
 
-			// workingSetWeight = 0;
 			workingSetReps = undefined;
 			workingSetDuration = undefined;
 			workingSetNotes = '';
 		} else {
 			console.log('Error creating working set');
+		}
+	}
+
+	/**
+	 * A set edited inside its own card.
+	 *
+	 * The object is the one in these arrays, so its own card is already
+	 * right; replacing it is what makes this card recompute -- the comparison
+	 * against the last session, the minimised summary, and the weight the
+	 * next set starts from all read these arrays.
+	 */
+	function setUpdated(updated: Set) {
+		if (updated.setType === 'warmup') {
+			warmupSets = warmupSets.map((set) => (set.objectId === updated.objectId ? updated : set));
+		} else {
+			workingSets = workingSets.map((set) => (set.objectId === updated.objectId ? updated : set));
 		}
 	}
 
@@ -190,23 +201,44 @@
 		// Sort chronologically
 		sortedInstances.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
-		// `at(-1)` is undefined for an empty list, which the original code
-		// dereferenced directly.
-		const mostRecent = sortedInstances.at(-1);
-
-		if (mostRecent && mostRecent.warmup.length > 0) {
-			warmupSetWeight = mostRecent.warmup[0].weight;
-		}
-
-		if (mostRecent && mostRecent.working.length > 0 && workingSets.length === 0) {
-			workingSetWeight = Math.max(...mostRecent.working.map((set) => set.weight));
-		}
-
 		return sortedInstances;
 	}
 
 	onMount(fetchOldSets);
 	$: sortedOldInstances = sortOldSets(oldInstances);
+	/** The last time this exercise was done. `at(-1)` of an empty list is undefined. */
+	$: lastSession = sortedOldInstances.at(-1);
+
+	/*
+		The weights the New Set dialogs open with, refreshed whenever the sets
+		or the unit change.
+
+		These were read once when the card was built and then left alone,
+		which is why editing a set from 170 to 190 left the next one still
+		offering 170, and why a profile in pounds was handed the kilograms
+		the weight is stored as.
+
+		The assignments sit inside a function rather than in the reactive
+		statements themselves: Svelte 4 treats a variable assigned by a
+		reactive statement as owned by it, and re-runs the statement whenever
+		anything else writes the variable -- including the `bind:` below, on
+		every keystroke -- which would wipe out the number being typed. See
+		`pager-binding.test.ts`, and the guard in `weight-binding.test.ts`.
+	*/
+	$: suggestWorkingWeight(workingSets, lastSession, $weightUnit);
+	$: suggestWarmupWeight(lastSession, $weightUnit);
+
+	function suggestWorkingWeight(
+		loggedSoFar: Set[],
+		previous: OldInstance | undefined,
+		unit: WeightUnit
+	) {
+		workingSetWeight = nextWorkingWeight(loggedSoFar, previous?.working ?? [], unit);
+	}
+
+	function suggestWarmupWeight(previous: OldInstance | undefined, unit: WeightUnit) {
+		warmupSetWeight = firstWarmupWeight(previous?.warmup ?? [], unit);
+	}
 
 	// Built from the live arrays rather than `exercise.sets`, so the minimised
 	// card reflects sets logged since the page loaded.
@@ -322,7 +354,13 @@
 									{#if sortedInstance.working.length > 0}
 										<h4 class="text-l font-bold mt-2">{timed ? 'Intervals' : 'Working Sets'}</h4>
 										{#each sortedInstance.working as set, setIndex}
-											{#if sortedOldInstances.at(workoutIndex - 1)}
+											<!--
+												`at(workoutIndex - 1)` wrapped round on the first
+												session shown, marking the oldest against the newest
+												rather than against nothing. Only a session with one
+												before it has anything to be compared against.
+											-->
+											{#if workoutIndex > 0}
 												<SetComponent
 													{set}
 													deletionCallback={deleteSet}
@@ -330,7 +368,7 @@
 													{timed}
 													display={setComparison(
 														set,
-														sortedOldInstances.at(workoutIndex - 1)?.working.at(setIndex)
+														sortedOldInstances[workoutIndex - 1].working.at(setIndex)
 													)}
 												/>
 											{:else}
@@ -354,7 +392,7 @@
 				<div class="mt-4">
 					<h3 class="text-xl font-bold">{timed ? 'Warmup' : 'Warmup Sets'}</h3>
 					{#each warmupSets as set}
-						<SetComponent {set} deletionCallback={deleteSet} {timed} />
+						<SetComponent {set} deletionCallback={deleteSet} updateCallback={setUpdated} {timed} />
 					{/each}
 					{#if $creatingWarmupSet}
 						<Skeleton class="h-14 w-full mt-2" />
@@ -384,8 +422,9 @@
 					<SetComponent
 						{set}
 						deletionCallback={deleteSet}
+						updateCallback={setUpdated}
 						{timed}
-						display={setComparison(set, sortedOldInstances.at(-1)?.working.at(setIndex))}
+						display={setComparison(set, lastSession?.working.at(setIndex))}
 					/>
 				{/each}
 				{#if $creatingWorkingSet}
