@@ -1,0 +1,32 @@
+name: Feature request
+description: Suggest something the app should do
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do
+      description: >
+        The situation, rather than the solution — what you are trying to get
+        done in the gym or on the server, and where the app gets in the way.
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would solve it
+      description: If you have a shape in mind. Rough is fine.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do instead at the moment
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - label: I have read [the roadmap](https://github.com/joecrockett5/train-hard#roadmap) and this is not already on it
+        - label: I would be willing to open a pull request for this
